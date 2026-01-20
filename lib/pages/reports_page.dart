@@ -3,8 +3,8 @@ import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'dart:io';
-import 'package:path_provider/path_provider.dart';
 import 'package:open_file/open_file.dart';
+import 'package:file_picker/file_picker.dart';
 import '../database.dart';
 
 class ReportsPage extends StatefulWidget {
@@ -186,6 +186,30 @@ class _ReportsPageState extends State<ReportsPage> {
 
   Future<void> _generatePdfReport() async {
     try {
+      // Demander à l'utilisateur où sauvegarder le fichier
+      final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
+      final fileName = 'rapport_archives_$timestamp.pdf';
+      
+      final String? outputPath = await FilePicker.platform.saveFile(
+        dialogTitle: 'Enregistrer le rapport PDF',
+        fileName: fileName,
+        type: FileType.custom,
+        allowedExtensions: ['pdf'],
+      );
+
+      // Si l'utilisateur annule, on arrête
+      if (outputPath == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Génération du rapport annulée'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+        return;
+      }
+
       final pdf = pw.Document();
 
       // Créer le PDF
@@ -381,20 +405,14 @@ class _ReportsPageState extends State<ReportsPage> {
         ),
       );
 
-      // Sauvegarder le PDF
-      final output = await getApplicationDocumentsDirectory();
-      final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
-      final file = File('${output.path}/ArchiveManager/rapport_$timestamp.pdf');
-      
-      // Créer le répertoire s'il n'existe pas
-      await file.parent.create(recursive: true);
-      
+      // Sauvegarder le PDF dans le chemin choisi par l'utilisateur
+      final file = File(outputPath);
       await file.writeAsBytes(await pdf.save());
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Rapport PDF généré avec succès !'),
+            content: Text('Rapport PDF enregistré avec succès !'),
             backgroundColor: Colors.green,
             duration: const Duration(seconds: 5),
             action: SnackBarAction(
