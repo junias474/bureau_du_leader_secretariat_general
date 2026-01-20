@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:printing/printing.dart';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
+import 'package:open_file/open_file.dart';
 import '../database.dart';
 
 class ReportsPage extends StatefulWidget {
@@ -394,22 +394,21 @@ class _ReportsPageState extends State<ReportsPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Rapport PDF généré: ${file.path}'),
+            content: Text('Rapport PDF généré avec succès !'),
             backgroundColor: Colors.green,
+            duration: const Duration(seconds: 5),
             action: SnackBarAction(
               label: 'OUVRIR',
               textColor: Colors.white,
               onPressed: () async {
-                await Printing.sharePdf(bytes: await pdf.save(), filename: 'rapport_$timestamp.pdf');
+                await OpenFile.open(file.path);
               },
             ),
           ),
         );
         
-        // Afficher aussi l'aperçu
-        await Printing.layoutPdf(
-          onLayout: (PdfPageFormat format) async => pdf.save(),
-        );
+        // Ouvrir automatiquement le PDF
+        await OpenFile.open(file.path);
       }
     } catch (e) {
       if (mounted) {

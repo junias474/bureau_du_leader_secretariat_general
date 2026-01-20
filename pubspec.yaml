@@ -21,12 +21,12 @@ dependencies:
   intl: ^0.18.0
   url_launcher: ^6.1.0
   pdf: ^3.10.4
-  printing: ^5.11.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
+  msix: ^3.16.7
 
 flutter:
   uses-material-design: true
