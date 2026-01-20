@@ -192,8 +192,8 @@ class _HomePageState extends State<HomePage> {
                   child: Text(
                     'Version 1.0.0',
                     style: TextStyle(
-                      color: Colors.white38,
-                      fontSize: 10,
+                      color: Color.fromARGB(167, 255, 255, 255),
+                      fontSize: 14,
                     ),
                   ),
                 ),

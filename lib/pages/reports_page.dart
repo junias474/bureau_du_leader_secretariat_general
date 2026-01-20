@@ -19,7 +19,7 @@ class _ReportsPageState extends State<ReportsPage> {
   Map<String, dynamic> _statistics = {};
   List<Map<String, dynamic>> _compartmentStats = [];
   List<Map<String, dynamic>> _recentActivity = [];
-  
+
   // Filtres de date
   DateTime? _startDate;
   DateTime? _endDate;
@@ -40,7 +40,7 @@ class _ReportsPageState extends State<ReportsPage> {
       // Construire la clause WHERE pour le filtrage de dates
       String dateFilter = '';
       List<dynamic> dateArgs = [];
-      
+
       if (_startDate != null && _endDate != null) {
         dateFilter = ' WHERE d.added_at BETWEEN ? AND ?';
         dateArgs = [
@@ -50,9 +50,11 @@ class _ReportsPageState extends State<ReportsPage> {
       }
 
       // Statistiques globales
-      final totalCompartments = await db.rawQuery('SELECT COUNT(*) as count FROM compartments');
-      final totalArchives = await db.rawQuery('SELECT COUNT(*) as count FROM archives');
-      
+      final totalCompartments =
+          await db.rawQuery('SELECT COUNT(*) as count FROM compartments');
+      final totalArchives =
+          await db.rawQuery('SELECT COUNT(*) as count FROM archives');
+
       String docCountQuery = 'SELECT COUNT(*) as count FROM documents';
       if (dateFilter.isNotEmpty) {
         docCountQuery += dateFilter.replaceAll('d.', '');
@@ -70,11 +72,11 @@ class _ReportsPageState extends State<ReportsPage> {
         LEFT JOIN archives a ON c.id = a.compartment_id
         LEFT JOIN documents d ON a.id = d.archive_id
       ''';
-      
+
       if (dateFilter.isNotEmpty) {
         compartmentQuery += dateFilter;
       }
-      
+
       compartmentQuery += '''
         GROUP BY c.id, c.name
         ORDER BY document_count DESC
@@ -94,11 +96,11 @@ class _ReportsPageState extends State<ReportsPage> {
         JOIN archives a ON d.archive_id = a.id
         JOIN compartments c ON a.compartment_id = c.id
       ''';
-      
+
       if (dateFilter.isNotEmpty) {
         activityQuery += dateFilter;
       }
-      
+
       activityQuery += '''
         ORDER BY d.added_at DESC
         LIMIT 50
@@ -130,7 +132,7 @@ class _ReportsPageState extends State<ReportsPage> {
     setState(() {
       _filterType = filterType;
       final now = DateTime.now();
-      
+
       switch (filterType) {
         case 'today':
           _startDate = DateTime(now.year, now.month, now.day);
@@ -138,7 +140,8 @@ class _ReportsPageState extends State<ReportsPage> {
           break;
         case 'week':
           _startDate = now.subtract(Duration(days: now.weekday - 1));
-          _startDate = DateTime(_startDate!.year, _startDate!.month, _startDate!.day);
+          _startDate =
+              DateTime(_startDate!.year, _startDate!.month, _startDate!.day);
           _endDate = now;
           break;
         case 'month':
@@ -151,7 +154,7 @@ class _ReportsPageState extends State<ReportsPage> {
           break;
       }
     });
-    
+
     _loadReports();
   }
 
@@ -186,10 +189,40 @@ class _ReportsPageState extends State<ReportsPage> {
 
   Future<void> _generatePdfReport() async {
     try {
+      // Recharger les données avant de générer le PDF
+      if (_statistics.isEmpty || _isLoading) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Chargement des données en cours...'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+        await _loadReports();
+
+        // Attendre un peu que les données se chargent
+        await Future.delayed(const Duration(milliseconds: 500));
+      }
+
+      // Vérifier qu'il y a des données à exporter
+      if (_statistics.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                  'Aucune donnée à exporter. Veuillez actualiser les rapports.'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+        return;
+      }
+
       // Demander à l'utilisateur où sauvegarder le fichier
       final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
       final fileName = 'rapport_archives_$timestamp.pdf';
-      
+
       final String? outputPath = await FilePicker.platform.saveFile(
         dialogTitle: 'Enregistrer le rapport PDF',
         fileName: fileName,
@@ -208,6 +241,29 @@ class _ReportsPageState extends State<ReportsPage> {
           );
         }
         return;
+      }
+
+      // Afficher un indicateur de chargement
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                ),
+                SizedBox(width: 16),
+                Text('Génération du PDF en cours...'),
+              ],
+            ),
+            duration: Duration(seconds: 30),
+          ),
+        );
       }
 
       final pdf = pw.Document();
@@ -265,15 +321,20 @@ class _ReportsPageState extends State<ReportsPage> {
                           pw.Text(
                             'Période: ${DateFormat('dd/MM/yyyy').format(_startDate!)} - ${DateFormat('dd/MM/yyyy').format(_endDate!)}',
                             style: const pw.TextStyle(fontSize: 10),
+                          )
+                        else
+                          pw.Text(
+                            'Période: Toutes les données',
+                            style: const pw.TextStyle(fontSize: 10),
                           ),
                       ],
                     ),
                   ],
                 ),
               ),
-              
+
               pw.SizedBox(height: 24),
-              
+
               // Vue d'ensemble
               pw.Text(
                 'VUE D\'ENSEMBLE',
@@ -284,18 +345,21 @@ class _ReportsPageState extends State<ReportsPage> {
                 ),
               ),
               pw.SizedBox(height: 12),
-              
+
               pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
                 children: [
-                  _buildPdfStatCard('Compartiments', _statistics['compartments']?.toString() ?? '0'),
-                  _buildPdfStatCard('Archives', _statistics['archives']?.toString() ?? '0'),
-                  _buildPdfStatCard('Documents', _statistics['documents']?.toString() ?? '0'),
+                  _buildPdfStatCard('Compartiments',
+                      (_statistics['compartments'] ?? 0).toString()),
+                  _buildPdfStatCard(
+                      'Archives', (_statistics['archives'] ?? 0).toString()),
+                  _buildPdfStatCard(
+                      'Documents', (_statistics['documents'] ?? 0).toString()),
                 ],
               ),
-              
+
               pw.SizedBox(height: 24),
-              
+
               // Statistiques par compartiment
               pw.Text(
                 'STATISTIQUES PAR COMPARTIMENT',
@@ -306,14 +370,15 @@ class _ReportsPageState extends State<ReportsPage> {
                 ),
               ),
               pw.SizedBox(height: 12),
-              
+
               if (_compartmentStats.isNotEmpty)
                 pw.Table(
                   border: pw.TableBorder.all(color: PdfColors.grey400),
                   children: [
                     // En-tête
                     pw.TableRow(
-                      decoration: const pw.BoxDecoration(color: PdfColors.blue100),
+                      decoration:
+                          const pw.BoxDecoration(color: PdfColors.blue100),
                       children: [
                         _buildPdfTableCell('Compartiment', isHeader: true),
                         _buildPdfTableCell('Archives', isHeader: true),
@@ -324,17 +389,30 @@ class _ReportsPageState extends State<ReportsPage> {
                     ..._compartmentStats.map((stat) {
                       return pw.TableRow(
                         children: [
-                          _buildPdfTableCell(stat['compartment_name']),
-                          _buildPdfTableCell(stat['archive_count'].toString(), align: pw.TextAlign.center),
-                          _buildPdfTableCell(stat['document_count'].toString(), align: pw.TextAlign.center),
+                          _buildPdfTableCell(
+                              stat['compartment_name']?.toString() ?? 'N/A'),
+                          _buildPdfTableCell(
+                              stat['archive_count']?.toString() ?? '0',
+                              align: pw.TextAlign.center),
+                          _buildPdfTableCell(
+                              stat['document_count']?.toString() ?? '0',
+                              align: pw.TextAlign.center),
                         ],
                       );
                     }).toList(),
                   ],
+                )
+              else
+                pw.Container(
+                  padding: const pw.EdgeInsets.all(16),
+                  child: pw.Text(
+                    'Aucune donnée disponible',
+                    style: const pw.TextStyle(color: PdfColors.grey600),
+                  ),
                 ),
-              
+
               pw.SizedBox(height: 24),
-              
+
               // Activité récente
               pw.Text(
                 'ACTIVITÉ RÉCENTE',
@@ -345,7 +423,7 @@ class _ReportsPageState extends State<ReportsPage> {
                 ),
               ),
               pw.SizedBox(height: 12),
-              
+
               if (_recentActivity.isNotEmpty)
                 pw.Table(
                   border: pw.TableBorder.all(color: PdfColors.grey400),
@@ -358,7 +436,8 @@ class _ReportsPageState extends State<ReportsPage> {
                   children: [
                     // En-tête
                     pw.TableRow(
-                      decoration: const pw.BoxDecoration(color: PdfColors.blue100),
+                      decoration:
+                          const pw.BoxDecoration(color: PdfColors.blue100),
                       children: [
                         _buildPdfTableCell('Document', isHeader: true),
                         _buildPdfTableCell('Compartiment', isHeader: true),
@@ -370,19 +449,34 @@ class _ReportsPageState extends State<ReportsPage> {
                     ..._recentActivity.take(20).map((activity) {
                       return pw.TableRow(
                         children: [
-                          _buildPdfTableCell(activity['document_name']),
-                          _buildPdfTableCell(activity['compartment_name']),
-                          _buildPdfTableCell(activity['archive_name']),
                           _buildPdfTableCell(
-                            DateFormat('dd/MM/yyyy').format(DateTime.parse(activity['added_at'])),
+                              activity['document_name']?.toString() ?? 'N/A'),
+                          _buildPdfTableCell(
+                              activity['compartment_name']?.toString() ??
+                                  'N/A'),
+                          _buildPdfTableCell(
+                              activity['archive_name']?.toString() ?? 'N/A'),
+                          _buildPdfTableCell(
+                            activity['added_at'] != null
+                                ? DateFormat('dd/MM/yyyy').format(
+                                    DateTime.parse(activity['added_at']))
+                                : 'N/A',
                             fontSize: 8,
                           ),
                         ],
                       );
                     }).toList(),
                   ],
+                )
+              else
+                pw.Container(
+                  padding: const pw.EdgeInsets.all(16),
+                  child: pw.Text(
+                    'Aucune activité récente',
+                    style: const pw.TextStyle(color: PdfColors.grey600),
+                  ),
                 ),
-              
+
               // Pied de page
               pw.SizedBox(height: 32),
               pw.Divider(color: PdfColors.grey400),
@@ -392,11 +486,13 @@ class _ReportsPageState extends State<ReportsPage> {
                 children: [
                   pw.Text(
                     'Généré par Gestionnaire d\'Archives - CMCI',
-                    style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600),
+                    style: const pw.TextStyle(
+                        fontSize: 8, color: PdfColors.grey600),
                   ),
                   pw.Text(
                     'Page ${context.pageNumber} sur ${context.pagesCount}',
-                    style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600),
+                    style: const pw.TextStyle(
+                        fontSize: 8, color: PdfColors.grey600),
                   ),
                 ],
               ),
@@ -407,12 +503,16 @@ class _ReportsPageState extends State<ReportsPage> {
 
       // Sauvegarder le PDF dans le chemin choisi par l'utilisateur
       final file = File(outputPath);
-      await file.writeAsBytes(await pdf.save());
+      final pdfBytes = await pdf.save();
+      await file.writeAsBytes(pdfBytes);
 
+      // Fermer le snackbar de chargement
       if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Rapport PDF enregistré avec succès !'),
+            content: const Text('Rapport PDF enregistré avec succès !'),
             backgroundColor: Colors.green,
             duration: const Duration(seconds: 5),
             action: SnackBarAction(
@@ -424,16 +524,24 @@ class _ReportsPageState extends State<ReportsPage> {
             ),
           ),
         );
-        
+
         // Ouvrir automatiquement le PDF
         await OpenFile.open(file.path);
       }
     } catch (e) {
       if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur lors de la génération du PDF: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content:
+                Text('Erreur lors de la génération du PDF: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 10),
+          ),
         );
       }
+      // Afficher l'erreur dans la console pour debug
+      print('ERREUR PDF: $e');
     }
   }
 
@@ -468,7 +576,10 @@ class _ReportsPageState extends State<ReportsPage> {
     );
   }
 
-  pw.Widget _buildPdfTableCell(String text, {bool isHeader = false, pw.TextAlign align = pw.TextAlign.left, double fontSize = 9}) {
+  pw.Widget _buildPdfTableCell(String text,
+      {bool isHeader = false,
+      pw.TextAlign align = pw.TextAlign.left,
+      double fontSize = 9}) {
     return pw.Padding(
       padding: const pw.EdgeInsets.all(6),
       child: pw.Text(
@@ -533,7 +644,8 @@ class _ReportsPageState extends State<ReportsPage> {
                   Padding(
                     padding: const EdgeInsets.only(top: 12),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
                         color: Colors.blue[50],
                         borderRadius: BorderRadius.circular(8),
@@ -542,11 +654,13 @@ class _ReportsPageState extends State<ReportsPage> {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.date_range, size: 16, color: Colors.blue[700]),
+                          Icon(Icons.date_range,
+                              size: 16, color: Colors.blue[700]),
                           const SizedBox(width: 8),
                           Text(
                             'Du ${DateFormat('dd/MM/yyyy').format(_startDate!)} au ${DateFormat('dd/MM/yyyy').format(_endDate!)}',
-                            style: TextStyle(fontSize: 12, color: Colors.blue[700]),
+                            style: TextStyle(
+                                fontSize: 12, color: Colors.blue[700]),
                           ),
                         ],
                       ),
@@ -556,7 +670,7 @@ class _ReportsPageState extends State<ReportsPage> {
             ),
           ),
           const Divider(height: 1),
-          
+
           // Contenu
           Expanded(
             child: _isLoading
@@ -586,7 +700,7 @@ class _ReportsPageState extends State<ReportsPage> {
 
   Widget _buildFilterChip(String label, String value, {bool isCustom = false}) {
     final isSelected = _filterType == value;
-    
+
     return FilterChip(
       label: Text(label),
       selected: isSelected,
@@ -654,7 +768,8 @@ class _ReportsPageState extends State<ReportsPage> {
     );
   }
 
-  Widget _buildStatCard(String title, String value, IconData icon, Color color) {
+  Widget _buildStatCard(
+      String title, String value, IconData icon, Color color) {
     return Card(
       elevation: 4,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -723,9 +838,15 @@ class _ReportsPageState extends State<ReportsPage> {
                   scrollDirection: Axis.horizontal,
                   child: DataTable(
                     columns: const [
-                      DataColumn(label: Text('Compartiment', style: TextStyle(fontWeight: FontWeight.bold))),
-                      DataColumn(label: Text('Archives', style: TextStyle(fontWeight: FontWeight.bold))),
-                      DataColumn(label: Text('Documents', style: TextStyle(fontWeight: FontWeight.bold))),
+                      DataColumn(
+                          label: Text('Compartiment',
+                              style: TextStyle(fontWeight: FontWeight.bold))),
+                      DataColumn(
+                          label: Text('Archives',
+                              style: TextStyle(fontWeight: FontWeight.bold))),
+                      DataColumn(
+                          label: Text('Documents',
+                              style: TextStyle(fontWeight: FontWeight.bold))),
                     ],
                     rows: _compartmentStats.map((stat) {
                       return DataRow(
@@ -772,13 +893,15 @@ class _ReportsPageState extends State<ReportsPage> {
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   itemCount: _recentActivity.length,
-                  separatorBuilder: (context, index) => const Divider(height: 1),
+                  separatorBuilder: (context, index) =>
+                      const Divider(height: 1),
                   itemBuilder: (context, index) {
                     final activity = _recentActivity[index];
                     return ListTile(
                       leading: CircleAvatar(
                         backgroundColor: Colors.blue[100],
-                        child: Icon(Icons.description, color: Colors.blue[700], size: 20),
+                        child: Icon(Icons.description,
+                            color: Colors.blue[700], size: 20),
                       ),
                       title: Text(
                         activity['document_name'],
