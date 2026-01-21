@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'compartments_page.dart';
+import 'locked_archives_page.dart';
 import 'settings_page.dart';
 import 'search_page.dart';
 import 'reports_page.dart';
@@ -19,6 +20,7 @@ class _HomePageState extends State<HomePage> {
   final List<Widget> _pages = [
     const DashboardPage(),
     const CompartmentsPage(),
+    const LockedArchivesPage(),
     const SearchPage(),
     const ReportsPage(),
     const SettingsPage(),
@@ -28,6 +30,7 @@ class _HomePageState extends State<HomePage> {
   final List<_NavigationItem> _navItems = [
     _NavigationItem(Icons.dashboard, 'Tableau de bord'),
     _NavigationItem(Icons.folder, 'Mes Archives'),
+    _NavigationItem(Icons.lock, 'Archives Verrouillées'),
     _NavigationItem(Icons.search, 'Rechercher'),
     _NavigationItem(Icons.assessment, 'Rapports'),
     _NavigationItem(Icons.settings, 'Paramètres'),
@@ -106,7 +109,7 @@ class _HomePageState extends State<HomePage> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: const Text(
-                          'Département Communication',
+                          'Département de la Communication',
                           style: TextStyle(
                             color: Colors.white70,
                             fontSize: 11,
@@ -137,6 +140,7 @@ class _HomePageState extends State<HomePage> {
                     itemBuilder: (context, index) {
                       final item = _navItems[index];
                       final isSelected = _selectedIndex == index;
+                      final isLockedArchives = index == 2; // Archives Verrouillées
 
                       return Padding(
                         padding: const EdgeInsets.symmetric(
@@ -149,12 +153,16 @@ class _HomePageState extends State<HomePage> {
                             child: Container(
                               decoration: BoxDecoration(
                                 color: isSelected
-                                    ? Colors.white.withOpacity(0.15)
+                                    ? (isLockedArchives
+                                        ? Colors.orange.withOpacity(0.2)
+                                        : Colors.white.withOpacity(0.15))
                                     : Colors.transparent,
                                 borderRadius: BorderRadius.circular(8),
                                 border: isSelected
                                     ? Border.all(
-                                        color: Colors.white.withOpacity(0.3),
+                                        color: isLockedArchives
+                                            ? Colors.orange.withOpacity(0.5)
+                                            : Colors.white.withOpacity(0.3),
                                         width: 1)
                                     : null,
                               ),
@@ -162,7 +170,9 @@ class _HomePageState extends State<HomePage> {
                                 leading: Icon(
                                   item.icon,
                                   color: isSelected
-                                      ? Colors.white
+                                      ? (isLockedArchives
+                                          ? Colors.orange[300]
+                                          : Colors.white)
                                       : Colors.white70,
                                   size: 22,
                                 ),
@@ -170,7 +180,9 @@ class _HomePageState extends State<HomePage> {
                                   item.label,
                                   style: TextStyle(
                                     color: isSelected
-                                        ? Colors.white
+                                        ? (isLockedArchives
+                                            ? Colors.orange[200]
+                                            : Colors.white)
                                         : Colors.white70,
                                     fontWeight: isSelected
                                         ? FontWeight.w600
@@ -178,6 +190,15 @@ class _HomePageState extends State<HomePage> {
                                     fontSize: 14,
                                   ),
                                 ),
+                                trailing: isLockedArchives
+                                    ? Icon(
+                                        Icons.shield,
+                                        size: 16,
+                                        color: isSelected
+                                            ? Colors.orange[300]
+                                            : Colors.white54,
+                                      )
+                                    : null,
                               ),
                             ),
                           ),
@@ -241,6 +262,7 @@ class DashboardPage extends StatefulWidget {
 class _DashboardPageState extends State<DashboardPage> {
   int _totalCompartments = 0;
   int _totalArchives = 0;
+  int _totalLockedArchives = 0;
   int _totalDocuments = 0;
   List<Map<String, dynamic>> _recentDocuments = [];
   bool _isLoading = true;
@@ -265,12 +287,17 @@ class _DashboardPageState extends State<DashboardPage> {
           await db.rawQuery('SELECT COUNT(*) as count FROM archives');
       _totalArchives = arcResult.first['count'] as int;
 
+      final lockedResult = await db.rawQuery(
+          'SELECT COUNT(*) as count FROM archives WHERE is_locked = 1');
+      _totalLockedArchives = lockedResult.first['count'] as int;
+
       final docResult =
           await db.rawQuery('SELECT COUNT(*) as count FROM documents');
       _totalDocuments = docResult.first['count'] as int;
 
       final recentDocs = await db.rawQuery('''
-        SELECT d.name, d.added_at, a.name as archive_name, c.name as compartment_name
+        SELECT d.name, d.added_at, a.name as archive_name, 
+               a.is_locked, c.name as compartment_name
         FROM documents d
         JOIN archives a ON d.archive_id = a.id
         JOIN compartments c ON a.compartment_id = c.id
@@ -351,14 +378,29 @@ class _DashboardPageState extends State<DashboardPage> {
                         const SizedBox(width: 16),
                         Expanded(
                           child: _StatCard(
-                            icon: Icons.description,
-                            title: 'Documents',
-                            value: _totalDocuments.toString(),
+                            icon: Icons.lock,
+                            title: 'Archives Verrouillées',
+                            value: _totalLockedArchives.toString(),
                             color: Colors.orange,
                             gradient: LinearGradient(
                               colors: [
                                 Colors.orange[400]!,
                                 Colors.orange[600]!
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: _StatCard(
+                            icon: Icons.description,
+                            title: 'Documents',
+                            value: _totalDocuments.toString(),
+                            color: Colors.purple,
+                            gradient: LinearGradient(
+                              colors: [
+                                Colors.purple[400]!,
+                                Colors.purple[600]!
                               ],
                             ),
                           ),
@@ -398,16 +440,36 @@ class _DashboardPageState extends State<DashboardPage> {
                             elevation: 2,
                             child: Column(
                               children: _recentDocuments.map((doc) {
+                                final isLocked = doc['is_locked'] == 1;
                                 return ListTile(
                                   leading: CircleAvatar(
-                                    backgroundColor: Colors.blue[100],
-                                    child: Icon(Icons.description,
-                                        color: Colors.blue[700]),
+                                    backgroundColor: isLocked
+                                        ? Colors.orange[100]
+                                        : Colors.blue[100],
+                                    child: Icon(
+                                      isLocked
+                                          ? Icons.shield
+                                          : Icons.description,
+                                      color: isLocked
+                                          ? Colors.orange[700]
+                                          : Colors.blue[700],
+                                    ),
                                   ),
-                                  title: Text(
-                                    doc['name'] as String,
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.w600),
+                                  title: Row(
+                                    children: [
+                                      if (isLocked) ...[
+                                        Icon(Icons.lock,
+                                            size: 14, color: Colors.orange[700]),
+                                        const SizedBox(width: 4),
+                                      ],
+                                      Expanded(
+                                        child: Text(
+                                          doc['name'] as String,
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.w600),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                   subtitle: Text(
                                     '${doc['compartment_name']} > ${doc['archive_name']}',
