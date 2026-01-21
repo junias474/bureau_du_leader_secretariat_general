@@ -21,12 +21,11 @@ class AboutPage extends StatelessWidget {
             Center(
               child: Column(
                 children: [
+                  // Logo du logiciel depuis les assets
                   Container(
-                    padding: const EdgeInsets.all(24),
+                    padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [Colors.blue[400]!, Colors.blue[600]!],
-                      ),
+                      color: Colors.white,
                       borderRadius: BorderRadius.circular(20),
                       boxShadow: [
                         BoxShadow(
@@ -36,19 +35,24 @@ class AboutPage extends StatelessWidget {
                         ),
                       ],
                     ),
-                    child: const Icon(
-                      Icons.archive,
-                      size: 80,
-                      color: Colors.white,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: Image.asset(
+                        'assets/logo.jpg',
+                        width: 120,
+                        height: 120,
+                        fit: BoxFit.contain,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 24),
                   const Text(
-                    'Archives Manager',
+                    'Gestionnaire d\'Archives',
                     style: TextStyle(
-                      fontSize: 32,
+                      fontSize: 28,
                       fontWeight: FontWeight.bold,
                     ),
+                    textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 8),
                   Text(
@@ -58,21 +62,35 @@ class AboutPage extends StatelessWidget {
                       color: Colors.grey[600],
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 12),
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 10),
                     decoration: BoxDecoration(
                       color: Colors.blue[50],
                       borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.blue.shade200),
                     ),
-                    child: Text(
-                      'Bureau du Leader',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.blue[700],
-                        fontWeight: FontWeight.w600,
-                      ),
+                    child: Column(
+                      children: [
+                        Text(
+                          'Bureau du Leader',
+                          style: TextStyle(
+                            fontSize: 15,
+                            color: Colors.blue[700],
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Secrétariat Général',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.blue[600],
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -81,8 +99,8 @@ class AboutPage extends StatelessWidget {
             const SizedBox(height: 40),
             _buildSection(
               'Description',
-              'Archives Manager est une application de gestion documentaire professionnelle conçue pour organiser, archiver et retrouver facilement vos documents importants. '
-                  'Avec une interface intuitive et des fonctionnalités puissantes, gérez vos archives en toute simplicité.',
+              'Gestionnaire d\'Archives est une solution professionnelle de gestion documentaire développée par le Département de la Communication pour le Secrétariat Général du Bureau du Leader. '
+                  'Ce Logiciel permet d\'organiser, archiver et retrouver facilement tous vos documents importants avec une sécurité renforcée et une interface intuitive.',
               Icons.info_outline,
               Colors.blue,
             ),
@@ -93,12 +111,18 @@ class AboutPage extends StatelessWidget {
               Icons.star_outline,
               Colors.orange,
               features: [
-                'Organisation hiérarchique (Compartiments > Archives > Documents)',
-                'Recherche rapide et avancée',
-                'Statistiques et rapports détaillés',
-                'Sauvegarde et restauration de la base de données',
-                'Protection par mot de passe',
-                'Interface moderne et ergonomique',
+                'Organisation hiérarchique en 3 niveaux (Compartiments > Archives > Documents)',
+                'Système de verrouillage des archives avec mot de passe global',
+                'Ajout de documents multiples (PDF, images, documents Office, etc.)',
+                'Recherche rapide et recherche avancée multi-critères',
+                'Génération de rapports PDF professionnels',
+                'Statistiques détaillées par compartiment et archive',
+                'Filtrage par période (aujourd\'hui, semaine, mois, personnalisé)',
+                'Sauvegarde et restauration complète de la base de données',
+                'Réinitialisation sécurisée avec confirmation par mot de passe',
+                'Protection par mot de passe à l\'ouverture de l\'application',
+                'Visualisation et gestion des documents directement dans l\'application',
+                'Interface moderne et ergonomique Material Design',
               ],
             ),
             const SizedBox(height: 24),
@@ -108,10 +132,13 @@ class AboutPage extends StatelessWidget {
               Icons.code,
               Colors.green,
               features: [
-                'Flutter - Framework multiplateforme',
-                'SQLite - Base de données locale',
-                'Dart - Langage de programmation',
-                'Material Design - Interface utilisateur',
+                'Flutter - Framework multiplateforme de Google',
+                'Dart - Langage de programmation moderne',
+                'SQLite - Base de données locale sécurisée',
+                'SQLite FFI - Support desktop haute performance',
+                'PDF Generation - Création de rapports professionnels',
+                'Crypto - Chiffrement SHA-256 des mots de passe',
+                'Material Design 3 - Interface utilisateur moderne',
               ],
             ),
             const SizedBox(height: 24),
@@ -124,10 +151,10 @@ class AboutPage extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.email, color: Colors.blue[700]),
+                        Icon(Icons.business, color: Colors.blue[700]),
                         const SizedBox(width: 12),
                         const Text(
-                          'Contact',
+                          'Développé par',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -136,11 +163,99 @@ class AboutPage extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.blue[50],
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.blue.shade200),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Département de la Communication',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blue[900],
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Pour le Secrétariat Général',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.blue[700],
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Bureau du Leader',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.blue[700],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Card(
+              elevation: 2,
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.support_agent, color: Colors.blue[700]),
+                        const SizedBox(width: 12),
+                        const Text(
+                          'Contacter le développeur',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.orange[50],
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.orange.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.info_outline,
+                              size: 20, color: Colors.orange[700]),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Service client en cours de mise en place',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.orange[900],
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildContactItem(Icons.phone, '+237 695 628 941'),
+                    _buildContactItem(Icons.phone_android, '+237 650 858 337'),
                     _buildContactItem(
-                        Icons.email_outlined, 'support@archivesmanager.com'),
-                    _buildContactItem(
-                        Icons.language, 'www.archivesmanager.com'),
-                    _buildContactItem(Icons.phone, '+237 6XX XX XX XX'),
+                        Icons.email_outlined, 'bedingjunias474@gmail.com'),
                   ],
                 ),
               ),
@@ -168,14 +283,17 @@ class AboutPage extends StatelessWidget {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      '© ${DateTime.now().year} Archives Manager. Tous droits réservés.\n\n'
+                      '© ${DateTime.now().year} Gestionnaire d\'Archives - Bureau du Leader.\n'
+                      'Tous droits réservés.\n\n'
+                      'Ce logiciel est la propriété du Bureau du Leader - Secrétariat Général. '
+                      'Développé par le Département de la Communication.\n\n'
                       'Ce logiciel est fourni "tel quel", sans garantie d\'aucune sorte. '
-                      'L\'utilisation de ce logiciel est à vos propres risques.\n\n'
+                      'L\'utilisation de ce logiciel est soumise aux politiques internes de l\'organisation.\n\n'
                       'Développé avec ❤️ au Cameroun',
                       style: TextStyle(
                         fontSize: 13,
                         color: Colors.grey[700],
-                        height: 1.5,
+                        height: 1.6,
                       ),
                     ),
                   ],
@@ -188,18 +306,23 @@ class AboutPage extends StatelessWidget {
                 onPressed: () {
                   showLicensePage(
                     context: context,
-                    applicationName: 'Archives Manager',
+                    applicationName: 'Gestionnaire d\'Archives',
                     applicationVersion: '1.0.0',
                     applicationIcon: Container(
-                      padding: const EdgeInsets.all(12),
+                      padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [Colors.blue[400]!, Colors.blue[600]!],
-                        ),
+                        color: Colors.white,
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Icon(Icons.archive,
-                          size: 32, color: Colors.white),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.asset(
+                          'assets/logo.jpg',
+                          width: 40,
+                          height: 40,
+                          fit: BoxFit.contain,
+                        ),
+                      ),
                     ),
                   );
                 },
@@ -213,6 +336,7 @@ class AboutPage extends StatelessWidget {
                 ),
               ),
             ),
+            const SizedBox(height: 16),
           ],
         ),
       ),
@@ -253,7 +377,7 @@ class AboutPage extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 14,
                   color: Colors.grey[700],
-                  height: 1.5,
+                  height: 1.6,
                 ),
               ),
             ],
@@ -272,6 +396,7 @@ class AboutPage extends StatelessWidget {
                             style: TextStyle(
                               fontSize: 14,
                               color: Colors.grey[700],
+                              height: 1.4,
                             ),
                           ),
                         ),
@@ -290,13 +415,23 @@ class AboutPage extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         children: [
-          Icon(icon, size: 20, color: Colors.grey[600]),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.blue[50],
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, size: 20, color: Colors.blue[700]),
+          ),
           const SizedBox(width: 12),
-          Text(
-            text,
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[700],
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[800],
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
         ],

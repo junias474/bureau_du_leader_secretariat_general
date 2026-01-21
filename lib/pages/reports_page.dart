@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'dart:io';
@@ -23,11 +24,12 @@ class _ReportsPageState extends State<ReportsPage> {
   // Filtres de date
   DateTime? _startDate;
   DateTime? _endDate;
-  String _filterType = 'all'; // 'all', 'today', 'week', 'month', 'custom'
+  String _filterType = 'all';
 
   @override
   void initState() {
     super.initState();
+    initializeDateFormatting('fr_FR', null);
     _loadReports();
   }
 
@@ -37,88 +39,124 @@ class _ReportsPageState extends State<ReportsPage> {
     try {
       final db = await DatabaseHelper.instance.database;
 
-      // Construire la clause WHERE pour le filtrage de dates
       String dateFilter = '';
       List<dynamic> dateArgs = [];
 
       if (_startDate != null && _endDate != null) {
         dateFilter = ' WHERE d.added_at BETWEEN ? AND ?';
         dateArgs = [
-          _startDate!.toIso8601String(),
-          _endDate!.add(const Duration(days: 1)).toIso8601String(),
+          _startDate?.toIso8601String() ?? '',
+          _endDate?.add(const Duration(days: 1)).toIso8601String() ?? '',
         ];
       }
 
-      // Statistiques globales
-      final totalCompartments =
-          await db.rawQuery('SELECT COUNT(*) as count FROM compartments');
-      final totalArchives =
-          await db.rawQuery('SELECT COUNT(*) as count FROM archives');
+      int compartmentCount = 0;
+      int archiveCount = 0;
+      int documentCount = 0;
 
-      String docCountQuery = 'SELECT COUNT(*) as count FROM documents';
-      if (dateFilter.isNotEmpty) {
-        docCountQuery += dateFilter.replaceAll('d.', '');
-      }
-      final totalDocuments = await db.rawQuery(docCountQuery, dateArgs);
-
-      // Statistiques par compartiment avec filtrage
-      String compartmentQuery = '''
-        SELECT 
-          c.id,
-          c.name as compartment_name,
-          COUNT(DISTINCT a.id) as archive_count,
-          COUNT(d.id) as document_count
-        FROM compartments c
-        LEFT JOIN archives a ON c.id = a.compartment_id
-        LEFT JOIN documents d ON a.id = d.archive_id
-      ''';
-
-      if (dateFilter.isNotEmpty) {
-        compartmentQuery += dateFilter;
+      try {
+        final totalCompartments =
+            await db.rawQuery('SELECT COUNT(*) as count FROM compartments');
+        compartmentCount = (totalCompartments.isNotEmpty
+                ? totalCompartments.first['count'] as int?
+                : null) ??
+            0;
+      } catch (e) {
+        print('Erreur compartments: $e');
       }
 
-      compartmentQuery += '''
-        GROUP BY c.id, c.name
-        ORDER BY document_count DESC
-      ''';
-
-      final compartmentData = await db.rawQuery(compartmentQuery, dateArgs);
-
-      // Activité récente avec filtrage
-      String activityQuery = '''
-        SELECT 
-          d.name as document_name,
-          d.added_at,
-          d.file_type,
-          a.name as archive_name,
-          c.name as compartment_name
-        FROM documents d
-        JOIN archives a ON d.archive_id = a.id
-        JOIN compartments c ON a.compartment_id = c.id
-      ''';
-
-      if (dateFilter.isNotEmpty) {
-        activityQuery += dateFilter;
+      try {
+        final totalArchives =
+            await db.rawQuery('SELECT COUNT(*) as count FROM archives');
+        archiveCount = (totalArchives.isNotEmpty
+                ? totalArchives.first['count'] as int?
+                : null) ??
+            0;
+      } catch (e) {
+        print('Erreur archives: $e');
       }
 
-      activityQuery += '''
-        ORDER BY d.added_at DESC
-        LIMIT 50
-      ''';
+      try {
+        String docCountQuery = 'SELECT COUNT(*) as count FROM documents';
+        if (dateFilter.isNotEmpty) {
+          docCountQuery += dateFilter.replaceAll('d.', '');
+        }
+        final totalDocuments = await db.rawQuery(docCountQuery, dateArgs);
+        documentCount = (totalDocuments.isNotEmpty
+                ? totalDocuments.first['count'] as int?
+                : null) ??
+            0;
+      } catch (e) {
+        print('Erreur documents: $e');
+      }
 
-      final recentActivity = await db.rawQuery(activityQuery, dateArgs);
+      List<Map<String, dynamic>> compartmentData = [];
+      try {
+        String compartmentQuery = '''
+          SELECT 
+            c.id,
+            c.name as compartment_name,
+            COUNT(DISTINCT a.id) as archive_count,
+            COUNT(d.id) as document_count
+          FROM compartments c
+          LEFT JOIN archives a ON c.id = a.compartment_id
+          LEFT JOIN documents d ON a.id = d.archive_id
+        ''';
+
+        if (dateFilter.isNotEmpty) {
+          compartmentQuery += dateFilter;
+        }
+
+        compartmentQuery += '''
+          GROUP BY c.id, c.name
+          ORDER BY document_count DESC
+        ''';
+
+        compartmentData = await db.rawQuery(compartmentQuery, dateArgs);
+      } catch (e) {
+        print('Erreur compartment stats: $e');
+      }
+
+      List<Map<String, dynamic>> recentActivity = [];
+      try {
+        String activityQuery = '''
+          SELECT 
+            d.name as document_name,
+            d.added_at,
+            d.file_type,
+            a.name as archive_name,
+            c.name as compartment_name
+          FROM documents d
+          JOIN archives a ON d.archive_id = a.id
+          JOIN compartments c ON a.compartment_id = c.id
+        ''';
+
+        if (dateFilter.isNotEmpty) {
+          activityQuery += dateFilter;
+        }
+
+        activityQuery += '''
+          ORDER BY d.added_at DESC
+          LIMIT 50
+        ''';
+
+        recentActivity = await db.rawQuery(activityQuery, dateArgs);
+      } catch (e) {
+        print('Erreur recent activity: $e');
+      }
 
       setState(() {
         _statistics = {
-          'compartments': totalCompartments.first['count'],
-          'archives': totalArchives.first['count'],
-          'documents': totalDocuments.first['count'],
+          'compartments': compartmentCount,
+          'archives': archiveCount,
+          'documents': documentCount,
         };
         _compartmentStats = compartmentData;
         _recentActivity = recentActivity;
         _isLoading = false;
       });
     } catch (e) {
+      print('Erreur générale loadReports: $e');
       setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -139,9 +177,8 @@ class _ReportsPageState extends State<ReportsPage> {
           _endDate = DateTime(now.year, now.month, now.day, 23, 59, 59);
           break;
         case 'week':
-          _startDate = now.subtract(Duration(days: now.weekday - 1));
-          _startDate =
-              DateTime(_startDate!.year, _startDate!.month, _startDate!.day);
+          final startWeek = now.subtract(Duration(days: now.weekday - 1));
+          _startDate = DateTime(startWeek.year, startWeek.month, startWeek.day);
           _endDate = now;
           break;
         case 'month':
@@ -164,15 +201,19 @@ class _ReportsPageState extends State<ReportsPage> {
       firstDate: DateTime(2020),
       lastDate: DateTime.now(),
       initialDateRange: _startDate != null && _endDate != null
-          ? DateTimeRange(start: _startDate!, end: _endDate!)
+          ? DateTimeRange(
+              start: _startDate ?? DateTime.now(),
+              end: _endDate ?? DateTime.now())
           : null,
       locale: const Locale('fr', 'FR'),
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.light(primary: Colors.blue[700]!),
+            colorScheme: ColorScheme.light(
+              primary: Colors.blue.shade700,
+            ),
           ),
-          child: child!,
+          child: child ?? const SizedBox(),
         );
       },
     );
@@ -187,9 +228,128 @@ class _ReportsPageState extends State<ReportsPage> {
     }
   }
 
+  void _showFilterMenu() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Filtrer par période',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              ListTile(
+                leading: Icon(Icons.all_inclusive, color: Colors.blue.shade700),
+                title: const Text('Tout'),
+                trailing: _filterType == 'all'
+                    ? Icon(Icons.check, color: Colors.blue.shade700)
+                    : null,
+                onTap: () {
+                  Navigator.pop(context);
+                  _applyDateFilter('all');
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.today, color: Colors.blue.shade700),
+                title: const Text('Aujourd\'hui'),
+                trailing: _filterType == 'today'
+                    ? Icon(Icons.check, color: Colors.blue.shade700)
+                    : null,
+                onTap: () {
+                  Navigator.pop(context);
+                  _applyDateFilter('today');
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.view_week, color: Colors.blue.shade700),
+                title: const Text('Cette semaine'),
+                trailing: _filterType == 'week'
+                    ? Icon(Icons.check, color: Colors.blue.shade700)
+                    : null,
+                onTap: () {
+                  Navigator.pop(context);
+                  _applyDateFilter('week');
+                },
+              ),
+              ListTile(
+                leading:
+                    Icon(Icons.calendar_month, color: Colors.blue.shade700),
+                title: const Text('Ce mois'),
+                trailing: _filterType == 'month'
+                    ? Icon(Icons.check, color: Colors.blue.shade700)
+                    : null,
+                onTap: () {
+                  Navigator.pop(context);
+                  _applyDateFilter('month');
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.date_range, color: Colors.blue.shade700),
+                title: const Text('Personnalisé'),
+                trailing: _filterType == 'custom'
+                    ? Icon(Icons.check, color: Colors.blue.shade700)
+                    : null,
+                onTap: () {
+                  Navigator.pop(context);
+                  _selectCustomDateRange();
+                },
+              ),
+              if (_startDate != null && _endDate != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 16),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.blue.shade200),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.info_outline,
+                            size: 20, color: Colors.blue.shade700),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'Période: ${DateFormat('dd/MM/yyyy').format(_startDate ?? DateTime.now())} - ${DateFormat('dd/MM/yyyy').format(_endDate ?? DateTime.now())}',
+                            style: TextStyle(
+                                fontSize: 13, color: Colors.blue.shade700),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _generatePdfReport() async {
     try {
-      // Recharger les données avant de générer le PDF
+      print('=== DÉBUT GÉNÉRATION PDF ===');
+
       if (_statistics.isEmpty || _isLoading) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -200,12 +360,8 @@ class _ReportsPageState extends State<ReportsPage> {
           );
         }
         await _loadReports();
-
-        // Attendre un peu que les données se chargent
-        await Future.delayed(const Duration(milliseconds: 500));
       }
 
-      // Vérifier qu'il y a des données à exporter
       if (_statistics.isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -219,7 +375,6 @@ class _ReportsPageState extends State<ReportsPage> {
         return;
       }
 
-      // Demander à l'utilisateur où sauvegarder le fichier
       final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
       final fileName = 'rapport_archives_$timestamp.pdf';
 
@@ -230,7 +385,6 @@ class _ReportsPageState extends State<ReportsPage> {
         allowedExtensions: ['pdf'],
       );
 
-      // Si l'utilisateur annule, on arrête
       if (outputPath == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -243,7 +397,6 @@ class _ReportsPageState extends State<ReportsPage> {
         return;
       }
 
-      // Afficher un indicateur de chargement
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -268,201 +421,325 @@ class _ReportsPageState extends State<ReportsPage> {
 
       final pdf = pw.Document();
 
-      // Créer le PDF
       pdf.addPage(
         pw.MultiPage(
           pageFormat: PdfPageFormat.a4,
           margin: const pw.EdgeInsets.all(32),
+          header: (pw.Context context) {
+            return pw.Container(
+              alignment: pw.Alignment.centerRight,
+              margin: const pw.EdgeInsets.only(bottom: 8),
+              padding: const pw.EdgeInsets.only(bottom: 8),
+              decoration: const pw.BoxDecoration(
+                border: pw.Border(
+                  bottom: pw.BorderSide(width: 0.5, color: PdfColors.grey400),
+                ),
+              ),
+              child: pw.Text(
+                'Bureau du Leader - Secrétariat Général',
+                style:
+                    const pw.TextStyle(fontSize: 9, color: PdfColors.grey600),
+              ),
+            );
+          },
+          footer: (pw.Context context) {
+            return pw.Container(
+              alignment: pw.Alignment.center,
+              margin: const pw.EdgeInsets.only(top: 8),
+              padding: const pw.EdgeInsets.only(top: 8),
+              decoration: const pw.BoxDecoration(
+                border: pw.Border(
+                  top: pw.BorderSide(width: 0.5, color: PdfColors.grey400),
+                ),
+              ),
+              child: pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text(
+                    'Document confidentiel',
+                    style: const pw.TextStyle(
+                        fontSize: 8, color: PdfColors.grey600),
+                  ),
+                  pw.Text(
+                    'Page ${context.pageNumber} / ${context.pagesCount}',
+                    style: const pw.TextStyle(
+                        fontSize: 8, color: PdfColors.grey600),
+                  ),
+                  pw.Text(
+                    DateFormat('dd/MM/yyyy').format(DateTime.now()),
+                    style: const pw.TextStyle(
+                        fontSize: 8, color: PdfColors.grey600),
+                  ),
+                ],
+              ),
+            );
+          },
           build: (pw.Context context) {
             return [
-              // En-tête
+              // EN-TÊTE PROFESSIONNEL
               pw.Container(
-                padding: const pw.EdgeInsets.only(bottom: 20),
-                decoration: const pw.BoxDecoration(
-                  border: pw.Border(
-                    bottom: pw.BorderSide(width: 2, color: PdfColors.blue700),
-                  ),
+                decoration: pw.BoxDecoration(
+                  color: PdfColors.blue700,
+                  borderRadius: pw.BorderRadius.circular(4),
                 ),
+                padding: const pw.EdgeInsets.all(20),
                 child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  crossAxisAlignment: pw.CrossAxisAlignment.center,
                   children: [
                     pw.Text(
-                      'RAPPORT D\'ARCHIVES',
+                      'RAPPORT D\'ANALYSE DES ARCHIVES',
                       style: pw.TextStyle(
-                        fontSize: 24,
+                        fontSize: 22,
                         fontWeight: pw.FontWeight.bold,
-                        color: PdfColors.blue700,
+                        color: PdfColors.white,
                       ),
+                      textAlign: pw.TextAlign.center,
                     ),
                     pw.SizedBox(height: 8),
                     pw.Text(
-                      'Gestionnaire d\'Archives - CMCI',
+                      'Système de Gestion Documentaire - CMCI',
                       style: const pw.TextStyle(
-                        fontSize: 12,
-                        color: PdfColors.grey700,
+                        fontSize: 11,
+                        color: PdfColors.white,
                       ),
+                      textAlign: pw.TextAlign.center,
                     ),
-                    pw.Text(
-                      'Département de la Communication',
+                  ],
+                ),
+              ),
+
+              pw.SizedBox(height: 20),
+
+              // INFORMATIONS DU RAPPORT
+              pw.Container(
+                padding: const pw.EdgeInsets.all(12),
+                decoration: pw.BoxDecoration(
+                  color: PdfColors.grey200,
+                  borderRadius: pw.BorderRadius.circular(4),
+                ),
+                child: pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  children: [
+                    pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text(
+                          'Date de génération:',
+                          style: pw.TextStyle(
+                            fontSize: 9,
+                            fontWeight: pw.FontWeight.bold,
+                            color: PdfColors.grey700,
+                          ),
+                        ),
+                        pw.Text(
+                          DateFormat('dd MMMM yyyy à HH:mm')
+                              .format(DateTime.now()),
+                          style: const pw.TextStyle(fontSize: 10),
+                        ),
+                      ],
+                    ),
+                    pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.end,
+                      children: [
+                        pw.Text(
+                          'Période analysée:',
+                          style: pw.TextStyle(
+                            fontSize: 9,
+                            fontWeight: pw.FontWeight.bold,
+                            color: PdfColors.grey700,
+                          ),
+                        ),
+                        if (_startDate != null && _endDate != null)
+                          pw.Text(
+                            '${DateFormat('dd/MM/yyyy').format(_startDate!)} - ${DateFormat('dd/MM/yyyy').format(_endDate!)}',
+                            style: const pw.TextStyle(fontSize: 10),
+                          )
+                        else
+                          pw.Text(
+                            'Toutes les données',
+                            style: const pw.TextStyle(fontSize: 10),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              pw.SizedBox(height: 24),
+
+              // SECTION 1: RÉSUMÉ EXÉCUTIF
+              _buildPdfSectionTitle('1. RÉSUMÉ EXÉCUTIF'),
+              pw.SizedBox(height: 12),
+
+              pw.Table(
+                border:
+                    pw.TableBorder.all(color: PdfColors.grey400, width: 0.5),
+                columnWidths: {
+                  0: const pw.FlexColumnWidth(2),
+                  1: const pw.FlexColumnWidth(1),
+                },
+                children: [
+                  _buildPdfSummaryRow(
+                    'Nombre total de compartiments',
+                    (_statistics['compartments'] ?? 0).toString(),
+                    isFirst: true,
+                  ),
+                  _buildPdfSummaryRow(
+                    'Nombre total d\'archives',
+                    (_statistics['archives'] ?? 0).toString(),
+                  ),
+                  _buildPdfSummaryRow(
+                    'Nombre total de documents',
+                    (_statistics['documents'] ?? 0).toString(),
+                  ),
+                  _buildPdfSummaryRow(
+                    'Moyenne de documents par archive',
+                    _statistics['archives'] != null &&
+                            _statistics['archives'] > 0
+                        ? ((_statistics['documents'] ?? 0) /
+                                _statistics['archives'])
+                            .toStringAsFixed(1)
+                        : '0',
+                  ),
+                ],
+              ),
+
+              pw.SizedBox(height: 28),
+
+              // SECTION 2: ANALYSE PAR COMPARTIMENT
+              _buildPdfSectionTitle('2. ANALYSE DÉTAILLÉE PAR COMPARTIMENT'),
+              pw.SizedBox(height: 12),
+
+              if (_compartmentStats.isNotEmpty)
+                pw.Table(
+                  border:
+                      pw.TableBorder.all(color: PdfColors.grey400, width: 0.5),
+                  columnWidths: {
+                    0: const pw.FlexColumnWidth(3),
+                    1: const pw.FlexColumnWidth(1.5),
+                    2: const pw.FlexColumnWidth(1.5),
+                    3: const pw.FlexColumnWidth(1.5),
+                  },
+                  children: [
+                    pw.TableRow(
+                      decoration:
+                          const pw.BoxDecoration(color: PdfColors.blue700),
+                      children: [
+                        _buildPdfHeaderCell('COMPARTIMENT'),
+                        _buildPdfHeaderCell('ARCHIVES',
+                            align: pw.TextAlign.center),
+                        _buildPdfHeaderCell('DOCUMENTS',
+                            align: pw.TextAlign.center),
+                        _buildPdfHeaderCell('DOC/ARCH',
+                            align: pw.TextAlign.center),
+                      ],
+                    ),
+                    ..._compartmentStats.asMap().entries.map((entry) {
+                      final stat = entry.value;
+                      final archiveCount = stat['archive_count'] ?? 0;
+                      final documentCount = stat['document_count'] ?? 0;
+                      final ratio = archiveCount > 0
+                          ? (documentCount / archiveCount).toStringAsFixed(1)
+                          : '0';
+
+                      return pw.TableRow(
+                        decoration: entry.key % 2 == 0
+                            ? const pw.BoxDecoration(color: PdfColors.grey100)
+                            : null,
+                        children: [
+                          _buildPdfDataCell(
+                              stat['compartment_name']?.toString() ?? 'N/A'),
+                          _buildPdfDataCell(archiveCount.toString(),
+                              align: pw.TextAlign.center),
+                          _buildPdfDataCell(documentCount.toString(),
+                              align: pw.TextAlign.center),
+                          _buildPdfDataCell(ratio, align: pw.TextAlign.center),
+                        ],
+                      );
+                    }).toList(),
+                  ],
+                )
+              else
+                pw.Container(
+                  padding: const pw.EdgeInsets.all(20),
+                  decoration: pw.BoxDecoration(
+                    border: pw.Border.all(color: PdfColors.grey400),
+                    borderRadius: pw.BorderRadius.circular(4),
+                  ),
+                  child: pw.Center(
+                    child: pw.Text(
+                      'Aucune donnée disponible pour cette période',
                       style: const pw.TextStyle(
                         fontSize: 10,
                         color: PdfColors.grey600,
                       ),
                     ),
-                    pw.SizedBox(height: 12),
-                    pw.Row(
-                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                      children: [
-                        pw.Text(
-                          'Date du rapport: ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}',
-                          style: const pw.TextStyle(fontSize: 10),
-                        ),
-                        if (_startDate != null && _endDate != null)
-                          pw.Text(
-                            'Période: ${DateFormat('dd/MM/yyyy').format(_startDate!)} - ${DateFormat('dd/MM/yyyy').format(_endDate!)}',
-                            style: const pw.TextStyle(fontSize: 10),
-                          )
-                        else
-                          pw.Text(
-                            'Période: Toutes les données',
-                            style: const pw.TextStyle(fontSize: 10),
-                          ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-
-              pw.SizedBox(height: 24),
-
-              // Vue d'ensemble
-              pw.Text(
-                'VUE D\'ENSEMBLE',
-                style: pw.TextStyle(
-                  fontSize: 16,
-                  fontWeight: pw.FontWeight.bold,
-                  color: PdfColors.blue700,
-                ),
-              ),
-              pw.SizedBox(height: 12),
-
-              pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
-                children: [
-                  _buildPdfStatCard('Compartiments',
-                      (_statistics['compartments'] ?? 0).toString()),
-                  _buildPdfStatCard(
-                      'Archives', (_statistics['archives'] ?? 0).toString()),
-                  _buildPdfStatCard(
-                      'Documents', (_statistics['documents'] ?? 0).toString()),
-                ],
-              ),
-
-              pw.SizedBox(height: 24),
-
-              // Statistiques par compartiment
-              pw.Text(
-                'STATISTIQUES PAR COMPARTIMENT',
-                style: pw.TextStyle(
-                  fontSize: 16,
-                  fontWeight: pw.FontWeight.bold,
-                  color: PdfColors.blue700,
-                ),
-              ),
-              pw.SizedBox(height: 12),
-
-              if (_compartmentStats.isNotEmpty)
-                pw.Table(
-                  border: pw.TableBorder.all(color: PdfColors.grey400),
-                  children: [
-                    // En-tête
-                    pw.TableRow(
-                      decoration:
-                          const pw.BoxDecoration(color: PdfColors.blue100),
-                      children: [
-                        _buildPdfTableCell('Compartiment', isHeader: true),
-                        _buildPdfTableCell('Archives', isHeader: true),
-                        _buildPdfTableCell('Documents', isHeader: true),
-                      ],
-                    ),
-                    // Données
-                    ..._compartmentStats.map((stat) {
-                      return pw.TableRow(
-                        children: [
-                          _buildPdfTableCell(
-                              stat['compartment_name']?.toString() ?? 'N/A'),
-                          _buildPdfTableCell(
-                              stat['archive_count']?.toString() ?? '0',
-                              align: pw.TextAlign.center),
-                          _buildPdfTableCell(
-                              stat['document_count']?.toString() ?? '0',
-                              align: pw.TextAlign.center),
-                        ],
-                      );
-                    }).toList(),
-                  ],
-                )
-              else
-                pw.Container(
-                  padding: const pw.EdgeInsets.all(16),
-                  child: pw.Text(
-                    'Aucune donnée disponible',
-                    style: const pw.TextStyle(color: PdfColors.grey600),
                   ),
                 ),
 
-              pw.SizedBox(height: 24),
+              pw.SizedBox(height: 28),
 
-              // Activité récente
+              // SECTION 3: ACTIVITÉ RÉCENTE
+              _buildPdfSectionTitle('3. JOURNAL D\'ACTIVITÉ RÉCENTE'),
+              pw.SizedBox(height: 8),
               pw.Text(
-                'ACTIVITÉ RÉCENTE',
-                style: pw.TextStyle(
-                  fontSize: 16,
-                  fontWeight: pw.FontWeight.bold,
-                  color: PdfColors.blue700,
-                ),
+                'Liste des 25 derniers documents ajoutés',
+                style:
+                    const pw.TextStyle(fontSize: 9, color: PdfColors.grey600),
               ),
-              pw.SizedBox(height: 12),
+              pw.SizedBox(height: 8),
 
               if (_recentActivity.isNotEmpty)
                 pw.Table(
-                  border: pw.TableBorder.all(color: PdfColors.grey400),
+                  border:
+                      pw.TableBorder.all(color: PdfColors.grey400, width: 0.5),
                   columnWidths: {
                     0: const pw.FlexColumnWidth(3),
                     1: const pw.FlexColumnWidth(2),
                     2: const pw.FlexColumnWidth(2),
-                    3: const pw.FlexColumnWidth(2),
+                    3: const pw.FlexColumnWidth(1.5),
                   },
                   children: [
-                    // En-tête
                     pw.TableRow(
                       decoration:
-                          const pw.BoxDecoration(color: PdfColors.blue100),
+                          const pw.BoxDecoration(color: PdfColors.blue700),
                       children: [
-                        _buildPdfTableCell('Document', isHeader: true),
-                        _buildPdfTableCell('Compartiment', isHeader: true),
-                        _buildPdfTableCell('Archive', isHeader: true),
-                        _buildPdfTableCell('Date', isHeader: true),
+                        _buildPdfHeaderCell('DOCUMENT'),
+                        _buildPdfHeaderCell('COMPARTIMENT'),
+                        _buildPdfHeaderCell('ARCHIVE'),
+                        _buildPdfHeaderCell('DATE AJOUT'),
                       ],
                     ),
-                    // Données (limité à 20 pour le PDF)
-                    ..._recentActivity.take(20).map((activity) {
+                    ..._recentActivity
+                        .take(25)
+                        .toList()
+                        .asMap()
+                        .entries
+                        .map((entry) {
+                      final activity = entry.value;
+                      String dateStr = 'N/A';
+                      try {
+                        if (activity['added_at'] != null) {
+                          dateStr = DateFormat('dd/MM/yyyy HH:mm')
+                              .format(DateTime.parse(activity['added_at']));
+                        }
+                      } catch (e) {
+                        dateStr = 'N/A';
+                      }
+
                       return pw.TableRow(
+                        decoration: entry.key % 2 == 0
+                            ? const pw.BoxDecoration(color: PdfColors.grey100)
+                            : null,
                         children: [
-                          _buildPdfTableCell(
+                          _buildPdfDataCell(
                               activity['document_name']?.toString() ?? 'N/A'),
-                          _buildPdfTableCell(
+                          _buildPdfDataCell(
                               activity['compartment_name']?.toString() ??
                                   'N/A'),
-                          _buildPdfTableCell(
+                          _buildPdfDataCell(
                               activity['archive_name']?.toString() ?? 'N/A'),
-                          _buildPdfTableCell(
-                            activity['added_at'] != null
-                                ? DateFormat('dd/MM/yyyy').format(
-                                    DateTime.parse(activity['added_at']))
-                                : 'N/A',
-                            fontSize: 8,
-                          ),
+                          _buildPdfDataCell(dateStr, fontSize: 8),
                         ],
                       );
                     }).toList(),
@@ -470,49 +747,102 @@ class _ReportsPageState extends State<ReportsPage> {
                 )
               else
                 pw.Container(
-                  padding: const pw.EdgeInsets.all(16),
-                  child: pw.Text(
-                    'Aucune activité récente',
-                    style: const pw.TextStyle(color: PdfColors.grey600),
+                  padding: const pw.EdgeInsets.all(20),
+                  decoration: pw.BoxDecoration(
+                    border: pw.Border.all(color: PdfColors.grey400),
+                    borderRadius: pw.BorderRadius.circular(4),
+                  ),
+                  child: pw.Center(
+                    child: pw.Text(
+                      'Aucune activité enregistrée pour cette période',
+                      style: const pw.TextStyle(
+                        fontSize: 10,
+                        color: PdfColors.grey600,
+                      ),
+                    ),
                   ),
                 ),
 
-              // Pied de page
-              pw.SizedBox(height: 32),
+              pw.SizedBox(height: 28),
+
+              // NOTES ET OBSERVATIONS
+              pw.Container(
+                padding: const pw.EdgeInsets.all(12),
+                decoration: pw.BoxDecoration(
+                  color: PdfColors.blue50,
+                  border: pw.Border.all(color: PdfColors.blue200),
+                  borderRadius: pw.BorderRadius.circular(4),
+                ),
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text(
+                      'NOTES ET OBSERVATIONS',
+                      style: pw.TextStyle(
+                        fontSize: 10,
+                        fontWeight: pw.FontWeight.bold,
+                        color: PdfColors.blue700,
+                      ),
+                    ),
+                    pw.SizedBox(height: 6),
+                    pw.Text(
+                      '• Ce rapport a été généré automatiquement par le système de gestion documentaire.',
+                      style: const pw.TextStyle(fontSize: 9),
+                    ),
+                    pw.Text(
+                      '• Les statistiques reflètent l\'état de la base de données au moment de la génération.',
+                      style: const pw.TextStyle(fontSize: 9),
+                    ),
+                    pw.Text(
+                      '• Pour toute question concernant ce rapport, veuillez contacter le service de gestion des archives.',
+                      style: const pw.TextStyle(fontSize: 9),
+                    ),
+                  ],
+                ),
+              ),
+
+              pw.SizedBox(height: 20),
+
+              // SIGNATURE FINALE
               pw.Divider(color: PdfColors.grey400),
-              pw.SizedBox(height: 8),
-              pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                children: [
-                  pw.Text(
-                    'Généré par Gestionnaire d\'Archives - CMCI',
-                    style: const pw.TextStyle(
-                        fontSize: 8, color: PdfColors.grey600),
+              pw.SizedBox(height: 12),
+              pw.Center(
+                child: pw.Text(
+                  'Généré automatiquement par Gestionnaire d\'Archives - Bureau du Leader',
+                  style: pw.TextStyle(
+                    fontSize: 9,
+                    fontWeight: pw.FontWeight.bold,
+                    color: PdfColors.grey700,
                   ),
-                  pw.Text(
-                    'Page ${context.pageNumber} sur ${context.pagesCount}',
-                    style: const pw.TextStyle(
-                        fontSize: 8, color: PdfColors.grey600),
+                  textAlign: pw.TextAlign.center,
+                ),
+              ),
+              pw.SizedBox(height: 4),
+              pw.Center(
+                child: pw.Text(
+                  'Secrétariat Général - Système de Gestion Documentaire',
+                  style: const pw.TextStyle(
+                    fontSize: 8,
+                    color: PdfColors.grey600,
                   ),
-                ],
+                  textAlign: pw.TextAlign.center,
+                ),
               ),
             ];
           },
         ),
       );
 
-      // Sauvegarder le PDF dans le chemin choisi par l'utilisateur
       final file = File(outputPath);
       final pdfBytes = await pdf.save();
       await file.writeAsBytes(pdfBytes);
 
-      // Fermer le snackbar de chargement
       if (mounted) {
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Rapport PDF enregistré avec succès !'),
+            content: const Text('Rapport PDF généré avec succès !'),
             backgroundColor: Colors.green,
             duration: const Duration(seconds: 5),
             action: SnackBarAction(
@@ -525,10 +855,15 @@ class _ReportsPageState extends State<ReportsPage> {
           ),
         );
 
-        // Ouvrir automatiquement le PDF
         await OpenFile.open(file.path);
       }
-    } catch (e) {
+
+      print('=== FIN GÉNÉRATION PDF RÉUSSIE ===');
+    } catch (e, stackTrace) {
+      print('=== ERREUR PDF ===');
+      print('ERREUR: $e');
+      print('STACK TRACE: $stackTrace');
+
       if (mounted) {
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
@@ -540,54 +875,88 @@ class _ReportsPageState extends State<ReportsPage> {
           ),
         );
       }
-      // Afficher l'erreur dans la console pour debug
-      print('ERREUR PDF: $e');
     }
   }
 
-  pw.Widget _buildPdfStatCard(String title, String value) {
+  // Fonctions d'aide pour le PDF
+  pw.Widget _buildPdfSectionTitle(String title) {
     return pw.Container(
-      padding: const pw.EdgeInsets.all(16),
-      decoration: pw.BoxDecoration(
-        color: PdfColors.blue50,
-        borderRadius: pw.BorderRadius.circular(8),
-        border: pw.Border.all(color: PdfColors.blue200),
+      padding: const pw.EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+      decoration: const pw.BoxDecoration(
+        border: pw.Border(
+          left: pw.BorderSide(width: 4, color: PdfColors.blue700),
+        ),
       ),
-      child: pw.Column(
-        children: [
-          pw.Text(
-            value,
-            style: pw.TextStyle(
-              fontSize: 24,
-              fontWeight: pw.FontWeight.bold,
-              color: PdfColors.blue700,
-            ),
-          ),
-          pw.SizedBox(height: 4),
-          pw.Text(
-            title,
-            style: const pw.TextStyle(
-              fontSize: 10,
-              color: PdfColors.grey700,
-            ),
-          ),
-        ],
+      child: pw.Text(
+        title,
+        style: pw.TextStyle(
+          fontSize: 14,
+          fontWeight: pw.FontWeight.bold,
+          color: PdfColors.blue900,
+        ),
       ),
     );
   }
 
-  pw.Widget _buildPdfTableCell(String text,
-      {bool isHeader = false,
-      pw.TextAlign align = pw.TextAlign.left,
-      double fontSize = 9}) {
+  pw.TableRow _buildPdfSummaryRow(String label, String value,
+      {bool isFirst = false}) {
+    return pw.TableRow(
+      decoration: pw.BoxDecoration(
+        color: isFirst ? PdfColors.blue50 : null,
+      ),
+      children: [
+        pw.Padding(
+          padding: const pw.EdgeInsets.all(10),
+          child: pw.Text(
+            label,
+            style: pw.TextStyle(
+              fontSize: 10,
+              fontWeight: pw.FontWeight.bold,
+            ),
+          ),
+        ),
+        pw.Container(
+          padding: const pw.EdgeInsets.all(10),
+          decoration: const pw.BoxDecoration(
+            color: PdfColors.grey100,
+          ),
+          child: pw.Text(
+            value,
+            style: pw.TextStyle(
+              fontSize: 11,
+              fontWeight: pw.FontWeight.bold,
+              color: PdfColors.blue700,
+            ),
+            textAlign: pw.TextAlign.center,
+          ),
+        ),
+      ],
+    );
+  }
+
+  pw.Widget _buildPdfHeaderCell(String text,
+      {pw.TextAlign align = pw.TextAlign.left}) {
     return pw.Padding(
-      padding: const pw.EdgeInsets.all(6),
+      padding: const pw.EdgeInsets.all(8),
       child: pw.Text(
         text,
         style: pw.TextStyle(
-          fontSize: fontSize,
-          fontWeight: isHeader ? pw.FontWeight.bold : pw.FontWeight.normal,
+          fontSize: 9,
+          fontWeight: pw.FontWeight.bold,
+          color: PdfColors.white,
         ),
+        textAlign: align,
+      ),
+    );
+  }
+
+  pw.Widget _buildPdfDataCell(String text,
+      {pw.TextAlign align = pw.TextAlign.left, double fontSize = 9}) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.all(8),
+      child: pw.Text(
+        text,
+        style: pw.TextStyle(fontSize: fontSize),
         textAlign: align,
       ),
     );
@@ -596,13 +965,67 @@ class _ReportsPageState extends State<ReportsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: Colors.grey.shade100,
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        backgroundColor: Colors.blue[700],
+        backgroundColor: Colors.blue.shade700,
         foregroundColor: Colors.white,
-        title: const Text('Rapports'),
+        title: Row(
+          children: [
+            const Text('Rapports'),
+            const Spacer(),
+            if (_startDate != null && _endDate != null)
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.filter_alt, size: 16),
+                    const SizedBox(width: 6),
+                    Text(
+                      '${DateFormat('dd/MM').format(_startDate!)} - ${DateFormat('dd/MM').format(_endDate!)}',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ],
+                ),
+              )
+            else if (_filterType != 'all')
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.filter_alt, size: 16),
+                    const SizedBox(width: 6),
+                    Text(
+                      _filterType == 'today'
+                          ? 'Aujourd\'hui'
+                          : _filterType == 'week'
+                              ? 'Cette semaine'
+                              : 'Ce mois',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.filter_list),
+            onPressed: _showFilterMenu,
+            tooltip: 'Filtres',
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadReports,
@@ -615,109 +1038,25 @@ class _ReportsPageState extends State<ReportsPage> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          // Barre de filtres
-          Container(
-            padding: const EdgeInsets.all(16),
-            color: Colors.white,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Filtrer par période',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: _loadReports,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildFilterChip('Tout', 'all'),
-                    _buildFilterChip('Aujourd\'hui', 'today'),
-                    _buildFilterChip('Cette semaine', 'week'),
-                    _buildFilterChip('Ce mois', 'month'),
-                    _buildFilterChip('Personnalisé', 'custom', isCustom: true),
+                    _buildOverviewSection(),
+                    const SizedBox(height: 32),
+                    _buildCompartmentStatsSection(),
+                    const SizedBox(height: 32),
+                    _buildRecentActivitySection(),
                   ],
                 ),
-                if (_startDate != null && _endDate != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 12),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: Colors.blue[50],
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.blue[200]!),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.date_range,
-                              size: 16, color: Colors.blue[700]),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Du ${DateFormat('dd/MM/yyyy').format(_startDate!)} au ${DateFormat('dd/MM/yyyy').format(_endDate!)}',
-                            style: TextStyle(
-                                fontSize: 12, color: Colors.blue[700]),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-              ],
+              ),
             ),
-          ),
-          const Divider(height: 1),
-
-          // Contenu
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : RefreshIndicator(
-                    onRefresh: _loadReports,
-                    child: SingleChildScrollView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildOverviewSection(),
-                          const SizedBox(height: 32),
-                          _buildCompartmentStatsSection(),
-                          const SizedBox(height: 32),
-                          _buildRecentActivitySection(),
-                        ],
-                      ),
-                    ),
-                  ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFilterChip(String label, String value, {bool isCustom = false}) {
-    final isSelected = _filterType == value;
-
-    return FilterChip(
-      label: Text(label),
-      selected: isSelected,
-      onSelected: (selected) {
-        if (isCustom) {
-          _selectCustomDateRange();
-        } else {
-          _applyDateFilter(value);
-        }
-      },
-      selectedColor: Colors.blue[100],
-      checkmarkColor: Colors.blue[700],
-      backgroundColor: Colors.grey[200],
-      labelStyle: TextStyle(
-        color: isSelected ? Colors.blue[700] : Colors.grey[700],
-        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-      ),
     );
   }
 
@@ -730,7 +1069,7 @@ class _ReportsPageState extends State<ReportsPage> {
           style: TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.bold,
-            color: Colors.grey[800],
+            color: Colors.grey.shade800,
           ),
         ),
         const SizedBox(height: 16),
@@ -739,7 +1078,7 @@ class _ReportsPageState extends State<ReportsPage> {
             Expanded(
               child: _buildStatCard(
                 'Compartiments',
-                _statistics['compartments']?.toString() ?? '0',
+                (_statistics['compartments'] ?? 0).toString(),
                 Icons.folder,
                 Colors.blue,
               ),
@@ -748,7 +1087,7 @@ class _ReportsPageState extends State<ReportsPage> {
             Expanded(
               child: _buildStatCard(
                 'Archives',
-                _statistics['archives']?.toString() ?? '0',
+                (_statistics['archives'] ?? 0).toString(),
                 Icons.archive,
                 Colors.green,
               ),
@@ -757,7 +1096,7 @@ class _ReportsPageState extends State<ReportsPage> {
             Expanded(
               child: _buildStatCard(
                 'Documents',
-                _statistics['documents']?.toString() ?? '0',
+                (_statistics['documents'] ?? 0).toString(),
                 Icons.description,
                 Colors.orange,
               ),
@@ -818,7 +1157,7 @@ class _ReportsPageState extends State<ReportsPage> {
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
-            color: Colors.grey[800],
+            color: Colors.grey.shade800,
           ),
         ),
         const SizedBox(height: 16),
@@ -830,7 +1169,7 @@ class _ReportsPageState extends State<ReportsPage> {
                   child: Center(
                     child: Text(
                       'Aucune donnée disponible',
-                      style: TextStyle(color: Colors.grey[600]),
+                      style: TextStyle(color: Colors.grey.shade600),
                     ),
                   ),
                 )
@@ -851,9 +1190,12 @@ class _ReportsPageState extends State<ReportsPage> {
                     rows: _compartmentStats.map((stat) {
                       return DataRow(
                         cells: [
-                          DataCell(Text(stat['compartment_name'])),
-                          DataCell(Text(stat['archive_count'].toString())),
-                          DataCell(Text(stat['document_count'].toString())),
+                          DataCell(Text(
+                              stat['compartment_name']?.toString() ?? 'N/A')),
+                          DataCell(
+                              Text((stat['archive_count'] ?? 0).toString())),
+                          DataCell(
+                              Text((stat['document_count'] ?? 0).toString())),
                         ],
                       );
                     }).toList(),
@@ -873,7 +1215,7 @@ class _ReportsPageState extends State<ReportsPage> {
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
-            color: Colors.grey[800],
+            color: Colors.grey.shade800,
           ),
         ),
         const SizedBox(height: 16),
@@ -885,7 +1227,7 @@ class _ReportsPageState extends State<ReportsPage> {
                   child: Center(
                     child: Text(
                       'Aucune activité récente',
-                      style: TextStyle(color: Colors.grey[600]),
+                      style: TextStyle(color: Colors.grey.shade600),
                     ),
                   ),
                 )
@@ -899,21 +1241,23 @@ class _ReportsPageState extends State<ReportsPage> {
                     final activity = _recentActivity[index];
                     return ListTile(
                       leading: CircleAvatar(
-                        backgroundColor: Colors.blue[100],
+                        backgroundColor: Colors.blue.shade100,
                         child: Icon(Icons.description,
-                            color: Colors.blue[700], size: 20),
+                            color: Colors.blue.shade700, size: 20),
                       ),
                       title: Text(
-                        activity['document_name'],
+                        activity['document_name']?.toString() ?? 'N/A',
                         style: const TextStyle(fontWeight: FontWeight.w600),
                       ),
                       subtitle: Text(
-                        '${activity['compartment_name']} > ${activity['archive_name']}',
-                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                        '${activity['compartment_name']?.toString() ?? 'N/A'} > ${activity['archive_name']?.toString() ?? 'N/A'}',
+                        style: TextStyle(
+                            fontSize: 12, color: Colors.grey.shade600),
                       ),
                       trailing: Text(
-                        _formatDate(activity['added_at']),
-                        style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                        _formatDate(activity['added_at']?.toString()),
+                        style: TextStyle(
+                            fontSize: 12, color: Colors.grey.shade500),
                       ),
                     );
                   },
@@ -923,7 +1267,8 @@ class _ReportsPageState extends State<ReportsPage> {
     );
   }
 
-  String _formatDate(String isoDate) {
+  String _formatDate(String? isoDate) {
+    if (isoDate == null || isoDate.isEmpty) return '';
     try {
       final date = DateTime.parse(isoDate);
       return DateFormat('dd/MM/yyyy HH:mm').format(date);

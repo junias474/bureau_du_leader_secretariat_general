@@ -16,20 +16,16 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _backupDatabase() async {
     try {
-      // Demander à l'utilisateur où sauvegarder
       String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
-      
+
       if (selectedDirectory == null) {
-        // L'utilisateur a annulé
         return;
       }
 
       setState(() => _isLoading = true);
 
-      // Exporter la base de données
       final backupPath = await DatabaseHelper.instance.exportDatabase();
-      
-      // Copier vers le répertoire choisi
+
       final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-');
       final destinationPath = '$selectedDirectory/backup_$timestamp.db';
       await File(backupPath).copy(destinationPath);
@@ -161,9 +157,8 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _resetDatabase() async {
-    // Étape 1: Demander le mot de passe
     final passwordController = TextEditingController();
-    
+
     final passwordConfirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -203,7 +198,8 @@ class _SettingsPageState extends State<SettingsPage> {
             onPressed: () async {
               if (passwordController.text.isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Veuillez entrer le mot de passe')),
+                  const SnackBar(
+                      content: Text('Veuillez entrer le mot de passe')),
                 );
                 return;
               }
@@ -213,7 +209,7 @@ class _SettingsPageState extends State<SettingsPage> {
               );
 
               if (!mounted) return;
-              
+
               if (!isValid) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
@@ -234,7 +230,6 @@ class _SettingsPageState extends State<SettingsPage> {
 
     if (passwordConfirmed != true) return;
 
-    // Étape 2: Deuxième confirmation
     final finalConfirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -386,7 +381,8 @@ class _SettingsPageState extends State<SettingsPage> {
                   newPasswordController.text.isEmpty ||
                   confirmPasswordController.text.isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Tous les champs sont obligatoires')),
+                  const SnackBar(
+                      content: Text('Tous les champs sont obligatoires')),
                 );
                 return;
               }
@@ -394,15 +390,18 @@ class _SettingsPageState extends State<SettingsPage> {
               if (newPasswordController.text.length < 4) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('Le nouveau mot de passe doit contenir au moins 4 caractères'),
+                    content: Text(
+                        'Le nouveau mot de passe doit contenir au moins 4 caractères'),
                   ),
                 );
                 return;
               }
 
-              if (newPasswordController.text != confirmPasswordController.text) {
+              if (newPasswordController.text !=
+                  confirmPasswordController.text) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Les mots de passe ne correspondent pas')),
+                  const SnackBar(
+                      content: Text('Les mots de passe ne correspondent pas')),
                 );
                 return;
               }
@@ -470,6 +469,7 @@ class _SettingsPageState extends State<SettingsPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // SÉCURITÉ
                   Text(
                     'Sécurité',
                     style: TextStyle(
@@ -478,25 +478,18 @@ class _SettingsPageState extends State<SettingsPage> {
                       color: Colors.grey[800],
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  GridView.count(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 16,
-                    mainAxisSpacing: 16,
-                    childAspectRatio: 1.2,
-                    children: [
-                      _buildSettingCard(
-                        title: 'Changer le mot de passe',
-                        description: 'Modifiez votre mot de passe de connexion pour renforcer la sécurité de vos données',
-                        icon: Icons.key,
-                        color: Colors.blue,
-                        onTap: _changePassword,
-                      ),
-                    ],
+                  const SizedBox(height: 12),
+                  _buildCompactSettingCard(
+                    title: 'Changer le mot de passe',
+                    description: 'Modifiez votre mot de passe de connexion',
+                    icon: Icons.key,
+                    color: Colors.blue,
+                    onTap: _changePassword,
                   ),
-                  const SizedBox(height: 32),
+
+                  const SizedBox(height: 28),
+
+                  // SAUVEGARDE & RESTAURATION
                   Text(
                     'Sauvegarde & Restauration',
                     style: TextStyle(
@@ -505,32 +498,26 @@ class _SettingsPageState extends State<SettingsPage> {
                       color: Colors.grey[800],
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  GridView.count(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 16,
-                    mainAxisSpacing: 16,
-                    childAspectRatio: 1.2,
-                    children: [
-                      _buildSettingCard(
-                        title: 'Sauvegarder',
-                        description: 'Créez une copie de sauvegarde de votre base de données à l\'emplacement de votre choix',
-                        icon: Icons.backup,
-                        color: Colors.green,
-                        onTap: _backupDatabase,
-                      ),
-                      _buildSettingCard(
-                        title: 'Restaurer',
-                        description: 'Restaurez vos données depuis un fichier de sauvegarde précédent',
-                        icon: Icons.restore,
-                        color: Colors.orange,
-                        onTap: _restoreDatabase,
-                      ),
-                    ],
+                  const SizedBox(height: 12),
+                  _buildCompactSettingCard(
+                    title: 'Sauvegarder la base de données',
+                    description: 'Créez une copie de sauvegarde',
+                    icon: Icons.backup,
+                    color: Colors.green,
+                    onTap: _backupDatabase,
                   ),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 12),
+                  _buildCompactSettingCard(
+                    title: 'Restaurer depuis une sauvegarde',
+                    description: 'Restaurez vos données depuis un fichier',
+                    icon: Icons.restore,
+                    color: Colors.orange,
+                    onTap: _restoreDatabase,
+                  ),
+
+                  const SizedBox(height: 28),
+
+                  // ZONE DE DANGER
                   Text(
                     'Zone de danger',
                     style: TextStyle(
@@ -539,25 +526,17 @@ class _SettingsPageState extends State<SettingsPage> {
                       color: Colors.red[700],
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  GridView.count(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 16,
-                    mainAxisSpacing: 16,
-                    childAspectRatio: 1.2,
-                    children: [
-                      _buildSettingCard(
-                        title: 'Réinitialiser',
-                        description: 'Supprime TOUTES les données (compartiments, archives, documents). Action irréversible !',
-                        icon: Icons.delete_forever,
-                        color: Colors.red,
-                        onTap: _resetDatabase,
-                        isDanger: true,
-                      ),
-                    ],
+                  const SizedBox(height: 12),
+                  _buildCompactSettingCard(
+                    title: 'Réinitialiser la base de données',
+                    description:
+                        'Supprime TOUTES les données - Action irréversible !',
+                    icon: Icons.delete_forever,
+                    color: Colors.red,
+                    onTap: _resetDatabase,
+                    isDanger: true,
                   ),
+
                   const SizedBox(height: 32),
                   Center(
                     child: Text(
@@ -574,7 +553,7 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  Widget _buildSettingCard({
+  Widget _buildCompactSettingCard({
     required String title,
     required String description,
     required IconData icon,
@@ -583,61 +562,61 @@ class _SettingsPageState extends State<SettingsPage> {
     bool isDanger = false,
   }) {
     return Card(
-      elevation: 4,
+      elevation: 2,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         side: isDanger
             ? BorderSide(color: Colors.red[300]!, width: 2)
             : BorderSide.none,
       ),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
             children: [
+              // Icône
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(icon, color: color, size: 32),
+                child: Icon(icon, color: color, size: 28),
               ),
-              const SizedBox(height: 12),
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: isDanger ? Colors.red[700] : Colors.grey[800],
-                ),
-              ),
-              const SizedBox(height: 8),
+              const SizedBox(width: 16),
+
+              // Contenu
               Expanded(
-                child: Text(
-                  description,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[600],
-                    height: 1.4,
-                  ),
-                  maxLines: 4,
-                  overflow: TextOverflow.ellipsis,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: isDanger ? Colors.red[700] : Colors.grey[800],
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      description,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  Icon(
-                    Icons.arrow_forward,
-                    size: 16,
-                    color: color,
-                  ),
-                ],
+
+              // Flèche
+              Icon(
+                Icons.arrow_forward_ios,
+                size: 16,
+                color: color.withOpacity(0.5),
               ),
             ],
           ),
