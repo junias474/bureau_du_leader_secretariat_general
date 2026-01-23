@@ -6,10 +6,10 @@ class CompartmentsManager extends StatefulWidget {
   final String searchQuery;
 
   const CompartmentsManager({
-    Key? key,
+    super.key,
     required this.onCompartmentSelected,
     required this.searchQuery,
-  }) : super(key: key);
+  });
 
   @override
   State<CompartmentsManager> createState() => CompartmentsManagerState();

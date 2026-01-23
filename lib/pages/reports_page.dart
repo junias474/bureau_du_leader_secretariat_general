@@ -9,7 +9,7 @@ import 'package:file_picker/file_picker.dart';
 import '../database.dart';
 
 class ReportsPage extends StatefulWidget {
-  const ReportsPage({Key? key}) : super(key: key);
+  const ReportsPage({super.key});
 
   @override
   State<ReportsPage> createState() => _ReportsPageState();
@@ -656,7 +656,7 @@ class _ReportsPageState extends State<ReportsPage> {
                           _buildPdfDataCell(ratio, align: pw.TextAlign.center),
                         ],
                       );
-                    }).toList(),
+                    }),
                   ],
                 )
               else
@@ -742,7 +742,7 @@ class _ReportsPageState extends State<ReportsPage> {
                           _buildPdfDataCell(dateStr, fontSize: 8),
                         ],
                       );
-                    }).toList(),
+                    }),
                   ],
                 )
               else

@@ -8,7 +8,7 @@ void main() async {
 }
 
 class ArchiveManagerApp extends StatelessWidget {
-  const ArchiveManagerApp({Key? key}) : super(key: key);
+  const ArchiveManagerApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -46,7 +46,7 @@ class ArchiveManagerApp extends StatelessWidget {
 }
 
 class SplashScreen extends StatefulWidget {
-  const SplashScreen({Key? key}) : super(key: key);
+  const SplashScreen({super.key});
 
   @override
   State<SplashScreen> createState() => _SplashScreenState();

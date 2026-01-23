@@ -4,7 +4,7 @@ import 'archives_manager.dart';
 import 'documents_manager.dart';
 
 class CompartmentsPage extends StatefulWidget {
-  const CompartmentsPage({Key? key}) : super(key: key);
+  const CompartmentsPage({super.key});
 
   @override
   State<CompartmentsPage> createState() => _CompartmentsPageState();

@@ -6,7 +6,7 @@ import 'home_page.dart';
 class LoginPage extends StatefulWidget {
   final bool isFirstLaunch;
 
-  const LoginPage({Key? key, required this.isFirstLaunch}) : super(key: key);
+  const LoginPage({super.key, required this.isFirstLaunch});
 
   @override
   State<LoginPage> createState() => _LoginPageState();

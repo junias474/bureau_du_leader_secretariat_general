@@ -7,11 +7,11 @@ class ArchivesManager extends StatefulWidget {
   final String searchQuery;
 
   const ArchivesManager({
-    Key? key,
+    super.key,
     required this.compartmentId,
     required this.onArchiveSelected,
     required this.searchQuery,
-  }) : super(key: key);
+  });
 
   @override
   State<ArchivesManager> createState() => ArchivesManagerState();

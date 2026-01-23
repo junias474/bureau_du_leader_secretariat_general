@@ -6,7 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import '../database.dart';
 
 class LockedArchivesPage extends StatefulWidget {
-  const LockedArchivesPage({Key? key}) : super(key: key);
+  const LockedArchivesPage({super.key});
 
   @override
   State<LockedArchivesPage> createState() => _LockedArchivesPageState();

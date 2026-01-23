@@ -5,10 +5,11 @@ import 'settings_page.dart';
 import 'search_page.dart';
 import 'reports_page.dart';
 import 'about_page.dart';
+import 'data_visualization.dart'; // NOUVEAU: Import de la page de visualisation
 import '../database.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({Key? key}) : super(key: key);
+  const HomePage({super.key});
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -21,6 +22,7 @@ class _HomePageState extends State<HomePage> {
     const DashboardPage(),
     const CompartmentsPage(),
     const LockedArchivesPage(),
+    const DataVisualizationPage(), // NOUVEAU: Page de visualisation des données
     const SearchPage(),
     const ReportsPage(),
     const SettingsPage(),
@@ -31,6 +33,7 @@ class _HomePageState extends State<HomePage> {
     _NavigationItem(Icons.dashboard, 'Tableau de bord'),
     _NavigationItem(Icons.folder, 'Mes Archives'),
     _NavigationItem(Icons.lock, 'Archives Verrouillées'),
+    _NavigationItem(Icons.table_chart, 'Données'), // NOUVEAU: Option de menu
     _NavigationItem(Icons.search, 'Rechercher'),
     _NavigationItem(Icons.assessment, 'Rapports'),
     _NavigationItem(Icons.settings, 'Paramètres'),
@@ -141,6 +144,7 @@ class _HomePageState extends State<HomePage> {
                       final item = _navItems[index];
                       final isSelected = _selectedIndex == index;
                       final isLockedArchives = index == 2; // Archives Verrouillées
+                      final isDataVisualization = index == 3; // NOUVEAU: Données
 
                       return Padding(
                         padding: const EdgeInsets.symmetric(
@@ -155,14 +159,18 @@ class _HomePageState extends State<HomePage> {
                                 color: isSelected
                                     ? (isLockedArchives
                                         ? Colors.orange.withOpacity(0.2)
-                                        : Colors.white.withOpacity(0.15))
+                                        : isDataVisualization
+                                            ? Colors.purple.withOpacity(0.2)
+                                            : Colors.white.withOpacity(0.15))
                                     : Colors.transparent,
                                 borderRadius: BorderRadius.circular(8),
                                 border: isSelected
                                     ? Border.all(
                                         color: isLockedArchives
                                             ? Colors.orange.withOpacity(0.5)
-                                            : Colors.white.withOpacity(0.3),
+                                            : isDataVisualization
+                                                ? Colors.purple.withOpacity(0.5)
+                                                : Colors.white.withOpacity(0.3),
                                         width: 1)
                                     : null,
                               ),
@@ -172,7 +180,9 @@ class _HomePageState extends State<HomePage> {
                                   color: isSelected
                                       ? (isLockedArchives
                                           ? Colors.orange[300]
-                                          : Colors.white)
+                                          : isDataVisualization
+                                              ? Colors.purple[300]
+                                              : Colors.white)
                                       : Colors.white70,
                                   size: 22,
                                 ),
@@ -182,7 +192,9 @@ class _HomePageState extends State<HomePage> {
                                     color: isSelected
                                         ? (isLockedArchives
                                             ? Colors.orange[200]
-                                            : Colors.white)
+                                            : isDataVisualization
+                                                ? Colors.purple[200]
+                                                : Colors.white)
                                         : Colors.white70,
                                     fontWeight: isSelected
                                         ? FontWeight.w600
@@ -198,7 +210,15 @@ class _HomePageState extends State<HomePage> {
                                             ? Colors.orange[300]
                                             : Colors.white54,
                                       )
-                                    : null,
+                                    : isDataVisualization
+                                        ? Icon(
+                                            Icons.bar_chart,
+                                            size: 16,
+                                            color: isSelected
+                                                ? Colors.purple[300]
+                                                : Colors.white54,
+                                          )
+                                        : null,
                               ),
                             ),
                           ),
@@ -253,7 +273,7 @@ class _NavigationItem {
 }
 
 class DashboardPage extends StatefulWidget {
-  const DashboardPage({Key? key}) : super(key: key);
+  const DashboardPage({super.key});
 
   @override
   State<DashboardPage> createState() => _DashboardPageState();

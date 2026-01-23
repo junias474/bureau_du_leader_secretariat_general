@@ -11,10 +11,10 @@ class DocumentsManager extends StatefulWidget {
   final String searchQuery;
 
   const DocumentsManager({
-    Key? key,
+    super.key,
     required this.archiveId,
     required this.searchQuery,
-  }) : super(key: key);
+  });
 
   @override
   State<DocumentsManager> createState() => DocumentsManagerState();
