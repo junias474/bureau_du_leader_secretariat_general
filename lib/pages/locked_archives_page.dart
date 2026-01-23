@@ -19,6 +19,7 @@ class _LockedArchivesPageState extends State<LockedArchivesPage>
   List<Map<String, dynamic>> _documents = [];
   bool _isLoading = true;
   bool _isAuthenticated = false;
+  bool _authFailed = false;
   String _searchQuery = '';
   final _searchController = TextEditingController();
   late AnimationController _animationController;
@@ -46,31 +47,37 @@ class _LockedArchivesPageState extends State<LockedArchivesPage>
   }
 
   Future<void> _checkAuthentication() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _authFailed = false;
+    });
 
     final hasPassword =
         await DatabaseHelper.instance.lockedArchivesPasswordExists();
 
     if (!hasPassword) {
-      // Premier accès - définir le mot de passe
       final created = await _showCreatePasswordDialog();
       if (!created) {
-        // L'utilisateur a annulé
-        if (mounted) Navigator.of(context).pop();
+        setState(() {
+          _isLoading = false;
+          _authFailed = true;
+        });
         return;
       }
     } else {
-      // Demander le mot de passe
       final authenticated = await _showGlobalUnlockDialog();
       if (!authenticated) {
-        // Mot de passe incorrect ou annulé
-        if (mounted) Navigator.of(context).pop();
+        setState(() {
+          _isLoading = false;
+          _authFailed = true;
+        });
         return;
       }
     }
 
     setState(() {
       _isAuthenticated = true;
+      _isLoading = false;
     });
 
     _loadLockedArchives();
@@ -385,7 +392,6 @@ class _LockedArchivesPageState extends State<LockedArchivesPage>
   }
 
   Future<void> _selectArchive(Map<String, dynamic> archive) async {
-    // Toujours demander le mot de passe individuel de l'archive
     final unlocked = await _showUnlockDialog(archive);
     if (!unlocked) return;
 
@@ -677,7 +683,6 @@ class _LockedArchivesPageState extends State<LockedArchivesPage>
                   return;
                 }
 
-                // Vérifier le mot de passe actuel
                 final isValid = await DatabaseHelper.instance
                     .verifyLockedArchivesPassword(
                         currentPasswordController.text);
@@ -734,7 +739,6 @@ class _LockedArchivesPageState extends State<LockedArchivesPage>
     bool obscurePassword = true;
     bool obscureConfirm = true;
 
-    // Charger les compartiments
     compartments = await DatabaseHelper.instance.getCompartments();
 
     if (compartments.isEmpty) {
@@ -980,8 +984,6 @@ class _LockedArchivesPageState extends State<LockedArchivesPage>
     }
 
     try {
-      // Importer le package url_launcher
-      // Pour Windows/Linux/macOS, on utilise la commande système
       if (Platform.isWindows) {
         await Process.run('cmd', ['/c', 'start', '', filePath]);
       } else if (Platform.isMacOS) {
@@ -1125,7 +1127,6 @@ class _LockedArchivesPageState extends State<LockedArchivesPage>
                   return;
                 }
 
-                // Vérifier le mot de passe actuel
                 final isValid = await DatabaseHelper.instance
                     .verifyArchivePassword(
                         archive['id'], currentPasswordController.text);
@@ -1406,8 +1407,31 @@ class _LockedArchivesPageState extends State<LockedArchivesPage>
     if (!_isAuthenticated) {
       return Scaffold(
         backgroundColor: Colors.grey[100],
-        body: const Center(
-          child: CircularProgressIndicator(),
+        body: Center(
+          child: _isLoading
+              ? const CircularProgressIndicator()
+              : Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      _authFailed ? Icons.lock : Icons.security,
+                      size: 80,
+                      color: Colors.grey[400],
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      _authFailed ? 'Accès refusé' : 'Authentification requise',
+                      style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      _authFailed
+                          ? 'Veuillez réessayer plus tard'
+                          : 'Veuillez entrer le mot de passe',
+                      style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+                    ),
+                  ],
+                ),
         ),
       );
     }

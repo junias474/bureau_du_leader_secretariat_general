@@ -143,8 +143,10 @@ class _HomePageState extends State<HomePage> {
                     itemBuilder: (context, index) {
                       final item = _navItems[index];
                       final isSelected = _selectedIndex == index;
-                      final isLockedArchives = index == 2; // Archives Verrouillées
-                      final isDataVisualization = index == 3; // NOUVEAU: Données
+                      final isLockedArchives =
+                          index == 2; // Archives Verrouillées
+                      final isDataVisualization =
+                          index == 3; // NOUVEAU: Données
 
                       return Padding(
                         padding: const EdgeInsets.symmetric(
@@ -479,7 +481,8 @@ class _DashboardPageState extends State<DashboardPage> {
                                     children: [
                                       if (isLocked) ...[
                                         Icon(Icons.lock,
-                                            size: 14, color: Colors.orange[700]),
+                                            size: 14,
+                                            color: Colors.orange[700]),
                                         const SizedBox(width: 4),
                                       ],
                                       Expanded(
