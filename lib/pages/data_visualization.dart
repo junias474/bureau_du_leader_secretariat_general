@@ -11,8 +11,10 @@ class DataVisualizationPage extends StatefulWidget {
 class _DataVisualizationPageState extends State<DataVisualizationPage> {
   String _selectedTable = 'compartments';
   List<Map<String, dynamic>> _tableData = [];
+  List<Map<String, dynamic>> _filteredTableData = [];
   List<String> _columnNames = [];
   bool _isLoading = true;
+  final TextEditingController _searchController = TextEditingController();
 
   final Map<String, String> _tableLabels = {
     'compartments': 'Compartiments',
@@ -25,6 +27,33 @@ class _DataVisualizationPageState extends State<DataVisualizationPage> {
   void initState() {
     super.initState();
     _loadTableData();
+    _searchController.addListener(_filterData);
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _filterData() {
+    final query = _searchController.text.toLowerCase();
+
+    if (query.isEmpty) {
+      setState(() {
+        _filteredTableData = _tableData;
+      });
+      return;
+    }
+
+    setState(() {
+      _filteredTableData = _tableData.where((row) {
+        return row.values.any((value) {
+          if (value == null) return false;
+          return value.toString().toLowerCase().contains(query);
+        });
+      }).toList();
+    });
   }
 
   Future<void> _loadTableData() async {
@@ -37,12 +66,14 @@ class _DataVisualizationPageState extends State<DataVisualizationPage> {
       if (data.isNotEmpty) {
         setState(() {
           _tableData = data;
+          _filteredTableData = data;
           _columnNames = data.first.keys.toList();
           _isLoading = false;
         });
       } else {
         setState(() {
           _tableData = [];
+          _filteredTableData = [];
           _columnNames = [];
           _isLoading = false;
         });
@@ -50,6 +81,7 @@ class _DataVisualizationPageState extends State<DataVisualizationPage> {
     } catch (e) {
       setState(() {
         _tableData = [];
+        _filteredTableData = [];
         _columnNames = [];
         _isLoading = false;
       });
@@ -67,9 +99,51 @@ class _DataVisualizationPageState extends State<DataVisualizationPage> {
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        title: const Text('Visualisation des Données'),
         backgroundColor: Colors.blue[700],
         foregroundColor: Colors.white,
+        title: Row(
+          children: [
+            // Titre à l'extrême gauche
+            const Text(
+              'Visualisation des Données',
+              style: TextStyle(fontSize: 18),
+            ),
+            const SizedBox(width: 12),
+            // Champ de recherche à droite
+            Expanded(
+              child: Container(
+                height: 40,
+                margin: const EdgeInsets.symmetric(horizontal: 16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: 'Rechercher...',
+                    hintStyle: TextStyle(color: Colors.grey[600]),
+                    prefixIcon: Icon(Icons.search, color: Colors.grey[600]),
+                    suffixIcon: _searchController.text.isNotEmpty
+                        ? IconButton(
+                            icon: Icon(Icons.clear, color: Colors.grey[600]),
+                            onPressed: () {
+                              _searchController.clear();
+                            },
+                          )
+                        : null,
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
+                  ),
+                  style: TextStyle(color: Colors.grey[800]),
+                ),
+              ),
+            ),
+          ],
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -108,6 +182,7 @@ class _DataVisualizationPageState extends State<DataVisualizationPage> {
                     onSelectionChanged: (Set<String> newSelection) {
                       setState(() {
                         _selectedTable = newSelection.first;
+                        _searchController.clear();
                       });
                       _loadTableData();
                     },
@@ -122,19 +197,23 @@ class _DataVisualizationPageState extends State<DataVisualizationPage> {
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
-                : _tableData.isEmpty
+                : _filteredTableData.isEmpty
                     ? Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Icon(
-                              Icons.table_chart_outlined,
+                              _searchController.text.isNotEmpty
+                                  ? Icons.search_off
+                                  : Icons.table_chart_outlined,
                               size: 64,
                               color: Colors.grey[400],
                             ),
                             const SizedBox(height: 16),
                             Text(
-                              'Aucune donnée dans cette table',
+                              _searchController.text.isNotEmpty
+                                  ? 'Aucun résultat trouvé'
+                                  : 'Aucune donnée dans cette table',
                               style: TextStyle(
                                 fontSize: 16,
                                 color: Colors.grey[600],
@@ -161,7 +240,7 @@ class _DataVisualizationPageState extends State<DataVisualizationPage> {
                               ],
                             ),
                             child: DataTable(
-                              headingRowColor: MaterialStateProperty.all(
+                              headingRowColor: WidgetStateProperty.all(
                                 Colors.blue[50],
                               ),
                               headingRowHeight: 48,
@@ -188,7 +267,7 @@ class _DataVisualizationPageState extends State<DataVisualizationPage> {
                                   ),
                                 );
                               }).toList(),
-                              rows: _tableData.map((row) {
+                              rows: _filteredTableData.map((row) {
                                 return DataRow(
                                   cells: _columnNames.map((columnName) {
                                     final value = row[columnName];
@@ -252,7 +331,9 @@ class _DataVisualizationPageState extends State<DataVisualizationPage> {
                       Icon(Icons.dataset, color: Colors.blue[700], size: 20),
                       const SizedBox(width: 8),
                       Text(
-                        'Total: ${_tableData.length} enregistrement(s)',
+                        _searchController.text.isNotEmpty
+                            ? 'Résultats: ${_filteredTableData.length} / ${_tableData.length}'
+                            : 'Total: ${_tableData.length} enregistrement(s)',
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
                           color: Colors.grey[800],
