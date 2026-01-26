@@ -476,35 +476,39 @@ class _ReportsPageState extends State<ReportsPage> {
           },
           build: (pw.Context context) {
             return [
-              // EN-TÊTE PROFESSIONNEL
-              pw.Container(
-                decoration: pw.BoxDecoration(
-                  color: PdfColors.blue700,
-                  borderRadius: pw.BorderRadius.circular(4),
-                ),
-                padding: const pw.EdgeInsets.all(20),
-                child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.center,
-                  children: [
-                    pw.Text(
-                      'RAPPORT D\'ANALYSE DES ARCHIVES',
-                      style: pw.TextStyle(
-                        fontSize: 22,
-                        fontWeight: pw.FontWeight.bold,
-                        color: PdfColors.white,
+              // EN-TÊTE PROFESSIONNEL (centré)
+              pw.Center(
+                child: pw.Container(
+                  // Limit the width so the blue framed title is centered and looks professional
+                  width: PdfPageFormat.a4.width * 0.75,
+                  decoration: pw.BoxDecoration(
+                    color: PdfColors.blue700,
+                    borderRadius: pw.BorderRadius.circular(4),
+                  ),
+                  padding: const pw.EdgeInsets.all(20),
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.center,
+                    children: [
+                      pw.Text(
+                        'RAPPORT D\'ANALYSE DES ARCHIVES',
+                        style: pw.TextStyle(
+                          fontSize: 22,
+                          fontWeight: pw.FontWeight.bold,
+                          color: PdfColors.white,
+                        ),
+                        textAlign: pw.TextAlign.center,
                       ),
-                      textAlign: pw.TextAlign.center,
-                    ),
-                    pw.SizedBox(height: 8),
-                    pw.Text(
-                      'Système de Gestion Documentaire - CMCI',
-                      style: const pw.TextStyle(
-                        fontSize: 11,
-                        color: PdfColors.white,
+                      pw.SizedBox(height: 8),
+                      pw.Text(
+                        'Système de Gestion Documentaire - CMCI',
+                        style: const pw.TextStyle(
+                          fontSize: 11,
+                          color: PdfColors.white,
+                        ),
+                        textAlign: pw.TextAlign.center,
                       ),
-                      textAlign: pw.TextAlign.center,
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
 
